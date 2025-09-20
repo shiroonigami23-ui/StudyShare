@@ -463,7 +463,9 @@ button.action-delete:hover {
 .project-hide {
   display: none;
 }
-
+.pdf-hide {
+  display: none !important;
+}
 .project-card {
   background:#f2faf8;
   border-radius:13px;
@@ -872,13 +874,13 @@ body.theme-mint {
     
     <label for="rollno">Roll Number (last 3 digits)<span style="color:#d00;">*</span>:</label>
     <input type="number" id="rollno" required max="999" min="0" />
-    <div class="error-message" id="rollno-error">Roll number is required (0-999)</div>
+    <div class="error-message" id="rollno-error">Roll number is required (001-150)</div>
     
     <label for="email">Email:</label>
     <input type="email" id="email" />
     <div class="error-message" id="email-error">Please enter a valid email</div>
     
-    <label for="summary">Summary/About (leave blank for default):</label>
+    <label for="summary">About (leave blank for default):</label>
     <textarea id="summary" placeholder="Write about yourself or leave blank for default summary"></textarea>
     
     <label for="hobbies">Hobbies:</label>
@@ -1754,6 +1756,48 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error loading draft:', e);
     }
   }
+});
+
+  document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('download-pdf').addEventListener('click', () => {
+    const element = document.getElementById('profile');
+    const profileImgContainer = element.querySelector('.profile-img-container');
+    const originalWidth = profileImgContainer.style.width;
+    const originalHeight = profileImgContainer.style.height;
+    const editDeleteSection = element.querySelector('.profile-actions');
+    const downloadSection = element.querySelector('.download-section');
+
+    // Hide buttons during PDF generation
+    if (editDeleteSection) editDeleteSection.style.display = 'none';
+    if (downloadSection) downloadSection.style.display = 'none';
+
+    profileImgContainer.style.width = '240px';
+    profileImgContainer.style.height = '240px';
+    profileImgContainer.style.borderRadius = '50%';
+    if (profileImgContainer.querySelector('img'))
+      profileImgContainer.querySelector('img').style.borderRadius = '50%';
+    profileImgContainer.style.overflow = 'hidden';
+
+    setTimeout(() => {
+      html2pdf()
+        .set({
+          margin: 1,
+          filename: 'portfolio.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 3 },
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        })
+        .from(element)
+        .save()
+        .then(() => {
+          // Restore buttons after PDF generation
+          profileImgContainer.style.width = originalWidth;
+          profileImgContainer.style.height = originalHeight;
+          if (editDeleteSection) editDeleteSection.style.display = '';
+          if (downloadSection) downloadSection.style.display = '';
+        });
+    }, 150);
+  });
 });
 
 </script>
