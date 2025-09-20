@@ -1550,7 +1550,6 @@ function displayProfile(data) {
     techDiv.innerHTML = '<div class="badge">Select technical areas in the form</div>';
   }
   
-  // Skills
   const skillsDiv = document.getElementById('profile-skills');
   skillsDiv.innerHTML = '';
   if (data.skills && data.skills.length > 0) {
@@ -1568,7 +1567,6 @@ function displayProfile(data) {
     });
   }
   
-  // Projects
   const projectsDiv = document.getElementById('profile-projects');
   const projectCount = document.getElementById('profile-proj-count');
   projectsDiv.innerHTML = '';
@@ -1591,7 +1589,6 @@ function displayProfile(data) {
     projectsDiv.innerHTML = '<div class="project-card">No projects added yet</div>';
   }
   
-  // Hobbies
   const hobbySection = document.getElementById('about-section');
   if (data.hobbies && data.hobbies.trim()) {
     document.getElementById('display-hobbies').textContent = data.hobbies;
@@ -1600,7 +1597,6 @@ function displayProfile(data) {
     hobbySection.style.display = 'none';
   }
   
-  // Interests
   const interestSection = document.getElementById('interest-section');
   const interestsDiv = document.getElementById('display-interests');
   if (data.interests && data.interests.trim()) {
@@ -1616,7 +1612,6 @@ function displayProfile(data) {
     interestSection.style.display = 'none';
   }
   
-  // WhatsApp
   const whatsappDiv = document.getElementById('display-whatsapp');
   whatsappDiv.innerHTML = '';
   if (data.whatsapp) {
@@ -1628,7 +1623,6 @@ function displayProfile(data) {
     });
   }
   
-  // Sports
   const sportsSection = document.getElementById('sports-section');
   const sportsDiv = document.getElementById('display-sports');
   if (data.sports && data.sports.trim()) {
@@ -1644,7 +1638,6 @@ function displayProfile(data) {
     sportsSection.style.display = 'none';
   }
   
-  // Achievements
   const achieveSection = document.getElementById('achieve-section');
   const achieveDiv = document.getElementById('display-achievements');
   const certsDiv = document.getElementById('achievement-certificates');
@@ -1711,11 +1704,10 @@ function handleDownload() {
     margin: 1,
     filename: 'portfolio.pdf',
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    html2canvas: { scale: 3 },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
   };
   
-  // Temporarily show all projects for PDF
   const wasVisible = profileProjectsVisible;
   if (!profileProjectsVisible) {
     toggleProfileProjects();
@@ -1741,8 +1733,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-
-// Auto-save functionality
 let autoSaveTimeout;
 document.addEventListener('input', (e) => {
   if (e.target.closest('#form-container')) {
@@ -1754,7 +1744,6 @@ document.addEventListener('input', (e) => {
   }
 });
 
-// Load draft on page load
 document.addEventListener('DOMContentLoaded', () => {
   const draft = localStorage.getItem(storageKey + '_draft');
   if (draft && !localStorage.getItem(storageKey)) {
