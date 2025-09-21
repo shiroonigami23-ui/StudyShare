@@ -281,12 +281,11 @@
   <script>
   const BACKEND_URL = "https://sharelit-1.onrender.com";
 
+// Fetch and render file list
 function fetchFiles() {
   fetch(`${BACKEND_URL}/files`)
     .then(res => res.json())
-    .then(files => {
-      renderFiles(files);
-    })
+    .then(files => renderFiles(files))
     .catch(() => {
       document.getElementById('fileList').innerHTML = '<div style="color:#ff4848;padding:16px;">Failed to load files.</div>';
     });
@@ -299,10 +298,9 @@ function renderFiles(list) {
     const card = document.createElement('div');
     card.className = 'file-card';
 
-    // Header meta
+    // Meta/header
     const header = document.createElement('div');
     header.className = 'file-header';
-
     const meta = document.createElement('div');
     meta.className = 'file-meta';
     meta.innerHTML = `<span class="file-name">${file.originalname}</span>
@@ -312,18 +310,16 @@ function renderFiles(list) {
     const actions = document.createElement('div');
     actions.className = 'file-actions';
     actions.innerHTML = `<button class="download-btn">Download</button>
-    <span class="download-count">${file.downloads || 0} Downloads</span>`;
+      <span class="download-count">${file.downloads || 0} Downloads</span>`;
     actions.querySelector('.download-btn').onclick = () => {
       window.open(`${BACKEND_URL}/download/${file.id}`, '_blank');
     };
 
     header.append(meta, actions);
 
-    // Comments section
+    // Comments
     const comments = document.createElement('div');
     comments.className = 'comments-section';
-
-    // List comments from backend metadata
     const commentList = document.createElement('ul');
     commentList.className = 'comment-list';
     (file.comments||[]).forEach(c => {
@@ -333,7 +329,7 @@ function renderFiles(list) {
       commentList.appendChild(item);
     });
 
-    // Comment form (no login, but asks name)
+    // Add new comment form
     const commentForm = document.createElement('form');
     commentForm.className = 'comment-form';
     commentForm.innerHTML = `
@@ -346,7 +342,6 @@ function renderFiles(list) {
       const name = commentForm.querySelector('input').value.trim();
       const text = commentForm.querySelector('textarea').value.trim();
       if (!name || !text) return;
-      // Post to backend
       fetch(`${BACKEND_URL}/comment/${file.id}`, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -360,7 +355,7 @@ function renderFiles(list) {
   });
 }
 
-// Drag & drop highlight
+// Drag & drop highlight and handler
 const dropArea = document.getElementById('dropArea');
 dropArea.addEventListener('dragover', e => {
   e.preventDefault(); dropArea.classList.add('dragover');
@@ -370,13 +365,13 @@ dropArea.addEventListener('dragleave', e => {
 });
 dropArea.addEventListener('drop', e => {
   e.preventDefault(); dropArea.classList.remove('dragover');
-  // For file upload using drag & drop
   if (e.dataTransfer.files.length > 0) {
     fileInput.files = e.dataTransfer.files;
     validateForm();
   }
 });
 
+// Form controls
 const uploaderName = document.getElementById('uploaderName');
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
@@ -395,19 +390,16 @@ uploadBtn.addEventListener('click', () => {
   const file = fileInput.files[0];
   const name = uploaderName.value.trim();
   if (!file || !name) return;
-  // Max 10MB validation
   if (file.size > 10*1024*1024) {
     errorMsg.textContent = 'File exceeds 10MB limit.';
     return;
   }
-  // Allowed filetype validation
   const allowed = ['pdf','epu','mp3','jpg'];
   const ext = file.name.split('.').pop().toLowerCase();
   if (!allowed.includes(ext)) {
     errorMsg.textContent = 'File type not allowed.';
     return;
   }
-  // Upload with progress
   const formData = new FormData();
   formData.append('file', file);
   formData.append('uploader', name);
