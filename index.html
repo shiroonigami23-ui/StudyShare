@@ -614,18 +614,18 @@
   </div>
 
 <script>
-  window.addEventListener('DOMContentLoaded', () => {
-  // Backend URL for API calls
+  
+window.addEventListener('DOMContentLoaded', () => {
   const BACKENDURL = 'https://sharelit-1.onrender.com';
+  const ADMIN_PASSWORD = 'admin123';
 
-  // State variables
-  let isAdmin = false;
   let userName = null;
+  let isAdmin = false;
   let files = [];
   let commentsData = [];
   let selectedTheme = localStorage.getItem('sharelit-theme') || 'light';
 
-  // DOM Elements
+  // Elements
   const appContainer = document.getElementById('appContainer');
   const entryScreen = document.getElementById('entryScreen');
   const userBtn = document.getElementById('userBtn');
@@ -640,7 +640,6 @@
 
   const dropArea = document.getElementById('dropArea');
   const fileInput = document.getElementById('fileInput');
-  const uploaderName = document.getElementById('uploaderName');
   const anonymousCheckbox = document.getElementById('anonymousCheckbox');
   const uploadBtn = document.getElementById('uploadBtn');
   const errorMsg = document.getElementById('errorMsg');
@@ -654,8 +653,23 @@
   const commentSubmitBtn = document.getElementById('commentSubmitBtn');
 
   const themeButtons = [...document.querySelectorAll('.theme-btn')];
+  const logoutBtn = document.getElementById('logoutBtn');
 
-  // Apply saved or default theme
+  function saveUserSession(name, role) {
+    localStorage.setItem('sharelit-username', name);
+    localStorage.setItem('sharelit-role', role);
+  }
+  function loadUserSession() {
+    return {
+      name: localStorage.getItem('sharelit-username'),
+      role: localStorage.getItem('sharelit-role')
+    };
+  }
+  function clearUserSession() {
+    localStorage.removeItem('sharelit-username');
+    localStorage.removeItem('sharelit-role');
+  }
+
   function applyTheme(theme) {
     document.body.classList.remove('theme-dark', 'theme-green', 'theme-light');
     if (theme === 'dark') {
@@ -671,7 +685,6 @@
     localStorage.setItem('sharelit-theme', theme);
   }
   applyTheme(selectedTheme);
-
   themeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       selectedTheme = btn.getAttribute('data-theme');
@@ -679,113 +692,113 @@
     });
   });
 
-  // Entry Screen Logic
-
-  userBtn.addEventListener('click', () => {
-    isAdmin = false;
+  function showEntryScreen() {
+    entryScreen.style.display = 'flex';
+    mainApp.style.display = 'none';
+    adminLoginForm.style.display = 'none';
+    userBtn.style.display = 'inline-block';
+    adminBtn.style.display = 'inline-block';
+    adminPasswordInput.value = '';
+    adminLoginSubmit.disabled = true;
+    adminLoginError.textContent = '';
+  }
+  function showMainApp() {
     entryScreen.style.display = 'none';
     mainApp.style.display = 'flex';
-    loadUserEntry();
+  }
+
+  function loadAppData() {
+    fetchFiles();
+    fetchComments();
+    setupUploadControls();
+  }
+
+  // Check session on load
+  const session = loadUserSession();
+  if (session.name && session.role) {
+    userName = session.name;
+    isAdmin = session.role === 'admin';
+    welcomeMsg.textContent = `Welcome, ${userName}!`;
+    showMainApp();
+    loadAppData();
+    commentNameInput.value = userName;
+    commentNameInput.disabled = true;
+  } else {
+    showEntryScreen();
+  }
+
+  userBtn.addEventListener('click', () => {
+    let enteredName = prompt('Enter your username');
+    if (!enteredName) return alert('Username required');
+    enteredName = enteredName.trim();
+    if (!enteredName) return alert('Username cannot be empty');
+    userName = enteredName;
+    isAdmin = false;
+    saveUserSession(userName, 'user');
+    welcomeMsg.textContent = `Welcome, ${userName}!`;
+    commentNameInput.value = userName;
+    commentNameInput.disabled = true;
+    showMainApp();
+    loadAppData();
   });
 
   adminBtn.addEventListener('click', () => {
-    userBtn.style.display = 'none';
-    adminBtn.style.display = 'none';
-    adminLoginForm.style.display = 'flex';
-    adminPasswordInput.focus();
+    let enteredPw = prompt('Enter admin password');
+    if (enteredPw !== ADMIN_PASSWORD) return alert('Incorrect admin password');
+    userName = 'Admin';
+    isAdmin = true;
+    saveUserSession(userName, 'admin');
+    welcomeMsg.textContent = `Welcome, Admin!`;
+    commentNameInput.value = 'Admin';
+    commentNameInput.disabled = true;
+    showMainApp();
+    loadAppData();
   });
 
   adminPasswordInput.addEventListener('input', () => {
     adminLoginSubmit.disabled = !adminPasswordInput.value.trim();
   });
 
-  const ADMIN_PASSWORD = 'admin123'; // For demo only
-
   adminLoginForm.addEventListener('submit', e => {
     e.preventDefault();
-    let pw = adminPasswordInput.value.trim();
-    if (pw === ADMIN_PASSWORD) {
+    if (adminPasswordInput.value.trim() === ADMIN_PASSWORD) {
+      userName = 'Admin';
       isAdmin = true;
-      entryScreen.style.display = 'none';
-      mainApp.style.display = 'flex';
-      adminPasswordInput.value = '';
-      adminLoginSubmit.disabled = true;
-      adminLoginError.textContent = '';
-      loadAdminEntry();
+      saveUserSession(userName, 'admin');
+      welcomeMsg.textContent = `Welcome, Admin!`;
+      commentNameInput.value = 'Admin';
+      commentNameInput.disabled = true;
+      showMainApp();
+      loadAppData();
     } else {
       adminLoginError.textContent = 'Incorrect password. Try again.';
-      adminPasswordInput.focus();
     }
   });
 
-  // User entry load
-  function loadUserEntry() {
-    const storedName = localStorage.getItem('sharelit-username');
-    if (storedName) {
-      userName = storedName;
-      welcomeMsg.textContent = `Welcome, ${userName}!`;
-      uploaderName.value = userName;
-      uploaderName.disabled = true;
-      anonymousCheckbox.checked = false;
-    } else {
-      uploaderName.value = '';
-      uploaderName.disabled = false;
-      welcomeMsg.textContent = 'Welcome! Please enter your name below to upload files.';
-      uploaderName.focus();
-    }
-    setupUploadControls();
-    fetchFiles();
-    fetchComments();
-  }
+  logoutBtn.addEventListener('click', () => {
+    clearUserSession();
+    userName = null;
+    isAdmin = false;
+    commentNameInput.value = '';
+    commentNameInput.disabled = false;
+    showEntryScreen();
+  });
 
-  // Admin entry load
-  function loadAdminEntry() {
-    userName = 'Admin';
-    welcomeMsg.textContent = `Welcome, Admin!`;
-    uploaderName.value = 'Admin';
-    uploaderName.disabled = true;
-    anonymousCheckbox.checked = false;
-    setupUploadControls();
-    fetchFiles();
-    fetchComments();
-  }
-
-  // Upload form controls validation
   function setupUploadControls() {
     function validateUploadForm() {
       const hasFile = fileInput.files.length > 0;
-      const nameValid = anonymousCheckbox.checked || (uploaderName.value.trim().length > 0 && uploaderName.value.trim().length <= 30);
+      const nameValid = true; // uploader name fixed, no input needed
       uploadBtn.disabled = !(hasFile && nameValid);
       uploadBtn.setAttribute('aria-disabled', uploadBtn.disabled ? 'true' : 'false');
       errorMsg.textContent = '';
     }
-    uploaderName.addEventListener('input', () => {
-      if (anonymousCheckbox.checked) {
-        uploaderName.disabled = true;
-        uploaderName.value = '';
-      } else {
-        uploaderName.disabled = false;
-      }
-      validateUploadForm();
-    });
     anonymousCheckbox.addEventListener('change', () => {
-      if (anonymousCheckbox.checked) {
-        uploaderName.disabled = true;
-        uploaderName.value = '';
-      } else {
-        uploaderName.disabled = false;
-        if (userName && !isAdmin) {
-          uploaderName.value = userName;
-          uploaderName.disabled = true;
-        }
-      }
       validateUploadForm();
     });
     fileInput.addEventListener('change', validateUploadForm);
     validateUploadForm();
   }
 
-  // Drag & Drop handling
   dropArea.addEventListener('dragover', e => {
     e.preventDefault();
     dropArea.classList.add('dragover');
@@ -805,7 +818,6 @@
   });
   dropArea.addEventListener('click', () => fileInput.click());
 
-  // Upload file function
   uploadBtn.addEventListener('click', () => {
     errorMsg.textContent = '';
     if (!fileInput.files.length) {
@@ -831,18 +843,7 @@
     } else if (userName) {
       uploader = userName;
     } else {
-      let val = uploaderName.value.trim();
-      if (!val) {
-        errorMsg.textContent = 'Please enter your name or upload as anonymous.';
-        return;
-      }
-      uploader = val;
-      if (!isAdmin) {
-        localStorage.setItem('sharelit-username', uploader);
-        userName = uploader;
-        welcomeMsg.textContent = `Welcome, ${userName}!`;
-        uploaderName.disabled = true;
-      }
+      uploader = 'Anonymous-user'; // fallback, should not occur
     }
 
     const formData = new FormData();
@@ -881,7 +882,6 @@
       });
   });
 
-  // Fetch and render files
   function fetchFiles() {
     fetch(`${BACKENDURL}/files`, {
       headers: isAdmin ? { 'x-admin-password': ADMIN_PASSWORD } : {}
@@ -900,7 +900,6 @@
       });
   }
 
-  // Render list of files
   function renderFiles() {
     fileList.innerHTML = '';
     if (files.length === 0) {
@@ -1060,8 +1059,6 @@
     });
   }
 
-  // Comments Section
-
   function fetchComments() {
     fetch(`${BACKENDURL}/comments`)
       .then(res => res.json())
@@ -1201,7 +1198,7 @@
   function validateCommentForm() {
     commentSubmitBtn.disabled = !(commentNameInput.value.trim() && commentTextArea.value.trim());
   }
-  commentNameInput.addEventListener('input', validateCommentForm);
+    commentNameInput.addEventListener('input', validateCommentForm);
   commentTextArea.addEventListener('input', validateCommentForm);
   commentForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -1221,12 +1218,13 @@
           commentSubmitBtn.disabled = true;
           fetchComments();
         } else {
-          alert('Failed to post comment.');                                          
+          alert('Failed to post comment.');
         }
       })
       .catch(() => alert('Network error while posting comment.'));
   });
-
+});
+  
   // Initial interface setup
 
   mainApp.style.display = 'none';
