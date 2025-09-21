@@ -614,11 +614,15 @@
   </div>
 
 <script>
- window.addEventListener('DOMContentLoaded', () => {
-  const BACKENDURL = 'https://sharelit-1.onrender.com';
-  const ADMIN_PASSWORD = 'admin123'; // MUST MATCH backend's environment variable value
+    window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
 
-  // Cached DOM Elements
+  console.log('Load runner Part 1 started');
+
+  const BACKENDURL = 'https://sharelit-1.onrender.com';
+  const ADMIN_PASSWORD = 'admin123';
+
+  // Cache DOM Elements
   const entryScreen = document.getElementById('entryScreen');
   const userBtn = document.getElementById('userBtn');
   const adminBtn = document.getElementById('adminBtn');
@@ -645,83 +649,71 @@
   const commentTextArea = document.getElementById('commentText');
   const commentSubmitBtn = document.getElementById('commentSubmitBtn');
 
-  const themeButtons = [...document.querySelectorAll('.theme-btn')];
   const logoutBtn = document.getElementById('logoutBtn');
 
-  // Application State
+  // App State
   let userName = null;
   let isAdmin = false;
   let files = [];
   let commentsData = [];
-  let selectedTheme = localStorage.getItem('sharelit-theme') || 'light';
 
-  // --- Helper Functions ---
-
-  // Save/Load session
-  function saveUserSession(name, role) {
+  // Storage helpers
+  const saveUserSession = (name, role) => {
     localStorage.setItem('sharelit-username', name);
     localStorage.setItem('sharelit-role', role);
-  }
-  function loadUserSession() {
-    return {
-      name: localStorage.getItem('sharelit-username')||null,
-      role: localStorage.getItem('sharelit-role')||null
-    };
-  }
-  function clearUserSession() {
+    console.log(`Saved session for ${name} with role ${role}`);
+  };
+
+  const loadUserSession = () => ({
+    name: localStorage.getItem('sharelit-username'),
+    role: localStorage.getItem('sharelit-role'),
+  });
+
+  const clearUserSession = () => {
     localStorage.removeItem('sharelit-username');
     localStorage.removeItem('sharelit-role');
-  }
+    console.log('Cleared user session');
+  };
 
-  // Theme management
-  function applyTheme(theme) {
-    document.body.classList.remove('theme-dark', 'theme-green', 'theme-light');
-    if (theme === 'dark') document.body.classList.add('theme-dark');
-    else if (theme === 'green') document.body.classList.add('theme-green');
-    else document.body.classList.add('theme-light');
-
-    themeButtons.forEach(btn =>
-      btn.classList.toggle('selected', btn.getAttribute('data-theme') === theme)
-    );
-    localStorage.setItem('sharelit-theme', theme);
-  }
-  applyTheme(selectedTheme);
-  themeButtons.forEach(btn => btn.addEventListener('click', () => {
-    selectedTheme = btn.getAttribute('data-theme');
-    applyTheme(selectedTheme);
-  }));
-
-  // Show or Hide Screens
-  function showEntryScreen() {
+  // UI display functions
+  const showEntryScreen = () => {
     entryScreen.style.display = 'flex';
     mainApp.style.display = 'none';
     adminLoginForm.style.display = 'none';
-    userBtn.style.display = 'inline-block';
-    adminBtn.style.display = 'inline-block';
     adminPasswordInput.value = '';
     adminLoginSubmit.disabled = true;
     adminLoginError.textContent = '';
-  }
-  function showAdminLogin() {
+    userBtn.style.display = 'inline-block';
+    adminBtn.style.display = 'inline-block';
+    console.log('Entry screen shown');
+  };
+
+  const showAdminLogin = () => {
     adminLoginForm.style.display = 'flex';
     userBtn.style.display = 'none';
     adminBtn.style.display = 'none';
     adminPasswordInput.focus();
-  }
-  function showMainApp() {
+    console.log('Admin login shown');
+  };
+
+  const showMainApp = () => {
     entryScreen.style.display = 'none';
     mainApp.style.display = 'flex';
-  }
+    adminLoginForm.style.display = 'none';
+    console.log('Main app shown');
+  };
 
-  // Initialize the uploader name field UI and validation
-  function setupUploadControls() {
-    function validateUploadForm() {
+  // Setup upload controls function wrapped in its listener:
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('Load runner for setupUploadControls started');
+    const validateUploadForm = () => {
       const hasFile = fileInput.files.length > 0;
       const nameValid = anonymousCheckbox.checked || (uploaderName.value.trim().length > 0);
       uploadBtn.disabled = !(hasFile && nameValid);
       uploadBtn.setAttribute('aria-disabled', uploadBtn.disabled ? 'true' : 'false');
       errorMsg.textContent = '';
-    }
+      console.log('Validated upload form', { hasFile, nameValid });
+    };
 
     anonymousCheckbox.addEventListener('change', () => {
       if (anonymousCheckbox.checked) {
@@ -733,90 +725,109 @@
       }
       validateUploadForm();
     });
+
     uploaderName.addEventListener('input', validateUploadForm);
     fileInput.addEventListener('change', validateUploadForm);
 
     validateUploadForm();
-  }
-
-  // Prevent default drag/drop behaviors and handle drop files
-  dropArea.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropArea.classList.add('dragover');
   });
-  dropArea.addEventListener('dragleave', e => {
-    e.preventDefault();
-    dropArea.classList.remove('dragover');
-  });
-  dropArea.addEventListener('drop', e => {
-    e.preventDefault();
-    dropArea.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-      fileInput.files = e.dataTransfer.files;
-      uploadBtn.disabled = false;
-      uploadBtn.focus();
-    }
-  });
-  dropArea.addEventListener('click', () => fileInput.click());
 
-  // Upload a file
-  uploadBtn.addEventListener('click', () => {
-    errorMsg.textContent = '';
-    if (!fileInput.files.length) {
-      errorMsg.textContent = 'Please select a file.';
-      return;
-    }
-    let file = fileInput.files[0];
-    if (file.size > 10 * 1024 * 1024) {
-      errorMsg.textContent = 'File exceeds 10MB limit.';
-      return;
-    }
-    const allowedExtensions = ['pdf', 'epub', 'mp3', 'jpg'];
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowedExtensions.includes(ext)) {
-      errorMsg.textContent = `File type .${ext} not allowed.`;
-      return;
-    }
+  // Drag & drop area events wrapped:
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('Load runner for drop area events started');
 
-    const uploader = anonymousCheckbox.checked ? 'Anonymous-user' : (isAdmin ? 'Admin' : (userName || 'Anonymous-user'));
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('uploader', uploader);
-
-    progressBar.style.width = '0%';
-    progressBar.parentElement.style.display = 'block';
-    uploadBtn.disabled = true;
-    uploadBtn.setAttribute('aria-disabled', 'true');
-
-    fetch(`${BACKENDURL}/upload`, {
-      method: 'POST',
-      body: formData,
-    }).then(res => res.json())
-      .then(data => {
-        progressBar.style.width = '0%';
-        progressBar.parentElement.style.display = 'none';
+    dropArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropArea.classList.add('dragover');
+    });
+    dropArea.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+    });
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
         uploadBtn.disabled = false;
-        uploadBtn.setAttribute('aria-disabled', 'false');
-        if (data.error) {
-          errorMsg.textContent = data.error || 'Upload failed.';
-        } else {
-          errorMsg.textContent = '';
-          fileInput.value = '';
-          uploadBtn.disabled = true;
-          fetchFiles();
-        }
-      }).catch(() => {
-        progressBar.style.width = '0%';
-        progressBar.parentElement.style.display = 'none';
-        uploadBtn.disabled = false;
-        uploadBtn.setAttribute('aria-disabled', 'false');
-        errorMsg.textContent = 'Network error during upload.';
-      });
+        uploadBtn.focus();
+      }
+    });
+    dropArea.addEventListener('click', () => fileInput.click());
   });
 
-  // Fetch and render file list
-  function fetchFiles() {
+  // Upload button click handling wrapped:
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('Load runner for uploadBtn click started');
+    uploadBtn.addEventListener('click', () => {
+      errorMsg.textContent = '';
+      if (!fileInput.files.length) {
+        errorMsg.textContent = 'Please select a file.';
+        return;
+      }
+      const file = fileInput.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        errorMsg.textContent = 'File exceeds 10MB limit.';
+        return;
+      }
+      const allowedExt = ['pdf', 'epub', 'mp3', 'jpg'];
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!allowedExt.includes(ext)) {
+        errorMsg.textContent = `File type .${ext} not allowed.`;
+        return;
+      }
+
+      const uploader = anonymousCheckbox.checked ? 'Anonymous-user' : (isAdmin ? 'Admin' : (userName || 'Anonymous-user'));
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('uploader', uploader);
+
+      progressBar.style.width = '0%';
+      progressBar.parentElement.style.display = 'block';
+      uploadBtn.disabled = true;
+      uploadBtn.setAttribute('aria-disabled', 'true');
+
+      fetch(`${BACKENDURL}/upload`, {
+        method: 'POST',
+        body: formData,
+      }).then(res => res.json())
+        .then(data => {
+          progressBar.style.width = '0%';
+          progressBar.parentElement.style.display = 'none';
+          uploadBtn.disabled = false;
+          uploadBtn.setAttribute('aria-disabled', 'false');
+          if (data.error) {
+            errorMsg.textContent = data.error || 'Upload failed.';
+            console.warn('Upload error:', data.error);
+          } else {
+            errorMsg.textContent = '';
+            fileInput.value = '';
+            uploadBtn.disabled = true;
+            fetchFiles();
+            console.log('Upload successful');
+          }
+        }).catch(err => {
+          progressBar.style.width = '0%';
+          progressBar.parentElement.style.display = 'none';
+          uploadBtn.disabled = false;
+          uploadBtn.setAttribute('aria-disabled', 'false');
+          errorMsg.textContent = 'Network error during upload.';
+          console.error('Upload network error:', err);
+        });
+    });
+  });
+
+  // Next: fetching and rendering files and comments etc will come in next part...
+
+  console.log('Load runner Part 1 finished');
+}); // End main DOMContentLoaded event listener
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  console.log('Load runner Part 2 started');
+
+  // Fetch files list from backend
+  const fetchFiles = () => {
     fetch(`${BACKENDURL}/files`, {
       headers: isAdmin ? { 'x-admin-password': ADMIN_PASSWORD } : {}
     }).then(res => res.json())
@@ -824,14 +835,19 @@
         if (Array.isArray(data)) {
           files = data;
           renderFiles();
+          console.log('Files fetched');
         } else {
           fileList.innerHTML = '<div style="color:#f44336; padding:16px; text-align:center;">Failed to load files.</div>';
+          console.error('Files response error');
         }
-      }).catch(() => {
+      }).catch(err => {
         fileList.innerHTML = '<div style="color:#f44336; padding:16px; text-align:center;">Failed to load files.</div>';
+        console.error('Files fetch error:', err);
       });
-  }
-  function renderFiles() {
+  };
+
+  // Render files to the UI
+  const renderFiles = () => {
     fileList.innerHTML = '';
     if (files.length === 0) {
       fileList.innerHTML = '<p>No files shared yet.</p>';
@@ -841,6 +857,7 @@
       const card = document.createElement('div');
       card.className = 'file-card';
 
+      // File meta
       const meta = document.createElement('div');
       meta.className = 'file-meta';
 
@@ -870,22 +887,25 @@
       meta.appendChild(dateSpan);
       meta.appendChild(statusSpan);
 
+      // Actions container
       const actions = document.createElement('div');
       actions.className = 'file-actions';
 
+      // Download button
       const downloadBtn = document.createElement('button');
       downloadBtn.className = 'btn-small download-btn';
-      downloadBtn.setAttribute('aria-label', `Download ${file.originalname}`);
       downloadBtn.textContent = 'Download';
       downloadBtn.disabled = !file.approved && !isAdmin;
+      downloadBtn.setAttribute('aria-label', `Download ${file.originalname}`);
       downloadBtn.addEventListener('click', () => {
         window.open(`${BACKENDURL}/download/${file.id}`, '_blank', 'noopener');
       });
 
+      // Upvote button
       const upvoteBtn = document.createElement('button');
       upvoteBtn.className = 'btn-small btn-upvote';
-      upvoteBtn.setAttribute('aria-label', `Upvote ${file.originalname}`);
       upvoteBtn.innerHTML = '👍 ' + (file.upvotes || 0);
+      upvoteBtn.setAttribute('aria-label', `Upvote ${file.originalname}`);
       upvoteBtn.addEventListener('click', () => {
         fetch(`${BACKENDURL}/upvote/${file.id}`, { method: 'POST' })
           .then(res => res.json())
@@ -900,17 +920,15 @@
       actions.appendChild(downloadBtn);
       actions.appendChild(upvoteBtn);
 
-      // Show approve/reject if admin and file not approved
+      // Admin approve/reject buttons
       if (isAdmin && !file.approved) {
         const approveBtn = document.createElement('button');
         approveBtn.className = 'btn-small btn-approve';
         approveBtn.textContent = 'Approve';
         approveBtn.addEventListener('click', () => {
-          if (confirm(`Approve file "${file.originalname}"?`)) {
-            fetch(`${BACKENDURL}/approve/${file.id}`, {
-              method: 'POST',
-              headers: { 'x-admin-password': ADMIN_PASSWORD }
-            }).then(res => res.json())
+          if (confirm(`Approve file ${file.originalname}?`)) {
+            fetch(`${BACKENDURL}/approve/${file.id}`, { method: 'POST', headers: { 'x-admin-password': ADMIN_PASSWORD } })
+              .then(res => res.json())
               .then(data => {
                 if (data.success) fetchFiles();
                 else alert('Approve failed.');
@@ -923,11 +941,9 @@
         rejectBtn.className = 'btn-small btn-reject';
         rejectBtn.textContent = 'Reject';
         rejectBtn.addEventListener('click', () => {
-          if (confirm(`Reject and delete file "${file.originalname}"?`)) {
-            fetch(`${BACKENDURL}/reject/${file.id}`, {
-              method: 'DELETE',
-              headers: { 'x-admin-password': ADMIN_PASSWORD }
-            }).then(res => res.json())
+          if (confirm(`Reject and delete file ${file.originalname}?`)) {
+            fetch(`${BACKENDURL}/reject/${file.id}`, { method: 'DELETE', headers: { 'x-admin-password': ADMIN_PASSWORD } })
+              .then(res => res.json())
               .then(data => {
                 if (data.success) fetchFiles();
                 else alert('Reject failed.');
@@ -937,18 +953,18 @@
         actions.appendChild(rejectBtn);
       }
 
-      // Users or Admin can delete own files (check ownership or admin)
+      // Delete button (for admin or uploader)
       const canDelete = isAdmin || (file.uploader && file.uploader === userName);
       if (canDelete) {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn-small btn-delete';
         deleteBtn.textContent = 'Delete';
         deleteBtn.addEventListener('click', () => {
-          if (confirm(`Delete file "${file.originalname}"?`)) {
+          if (confirm(`Delete file ${file.originalname}?`)) {
             fetch(`${BACKENDURL}/delete/${file.id}`, {
               method: 'DELETE',
-              headers: { 'Content-Type': 'application/json', 'x-admin-password': isAdmin ? ADMIN_PASSWORD : '' },
-              body: JSON.stringify({ uploader: isAdmin ? 'Admin' : userName, adminPassword: isAdmin ? ADMIN_PASSWORD : null })
+              headers: isAdmin ? { 'x-admin-password': ADMIN_PASSWORD } : { 'Content-Type': 'application/json' },
+              body: isAdmin ? null : JSON.stringify({ uploader: userName })
             }).then(res => res.json())
               .then(data => {
                 if (data.success) fetchFiles();
@@ -963,39 +979,51 @@
       card.appendChild(actions);
       fileList.appendChild(card);
     });
-  }
+  };
 
-  // Fetch and render all comments (flat)
-  function fetchComments() {
+  // Next: Comments rendering and handling in next part...
+
+  console.log('Load runner Part 2 finished');
+});
+  
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  console.log('Load runner Part 3 started');
+
+  // Fetch all comments (flat for now)
+  const fetchComments = () => {
     fetch(`${BACKENDURL}/comments`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
           commentsData = data;
           renderComments();
+          console.log('Comments fetched');
         } else {
           commentList.innerHTML = '<p style="color:#f44336;">Failed to load comments.</p>';
+          console.error('Comments response error');
         }
       })
-      .catch(() => {
+      .catch(err => {
         commentList.innerHTML = '<p style="color:#f44336;">Failed to load comments.</p>';
+        console.error('Comments fetch error:', err);
       });
-  }
+  };
 
-  // Render comments with nested replies
-  function renderComments() {
+  // Render comments with basic nesting by parentId
+  const renderComments = () => {
     commentList.innerHTML = '';
     if (commentsData.length === 0) {
       commentList.innerHTML = '<p>No comments yet.</p>';
       return;
     }
 
-    // Organize comments by parentId
     const map = {};
     commentsData.forEach(c => {
       c.replies = [];
       map[c.id] = c;
     });
+
     const rootComments = [];
     commentsData.forEach(c => {
       if (c.parentId && map[c.parentId]) {
@@ -1005,7 +1033,7 @@
       }
     });
 
-    function createCommentItem(c) {
+    const createCommentItem = (c) => {
       const li = document.createElement('li');
       li.className = 'comment-item';
 
@@ -1038,14 +1066,14 @@
         c.replies.forEach(rc => repliesUl.appendChild(createCommentItem(rc)));
         li.appendChild(repliesUl);
       }
-
       return li;
-    }
-    rootComments.forEach(c => commentList.appendChild(createCommentItem(c)));
-  }
+    };
 
-  // Inline reply form to nest reply comments
-  function showReplyForm(parentLi, parentId) {
+    rootComments.forEach(c => commentList.appendChild(createCommentItem(c)));
+  };
+
+  // Inline reply form under a comment
+  const showReplyForm = (parentLi, parentId) => {
     const existingForm = document.getElementById('inlineReplyForm');
     if (existingForm) existingForm.remove();
 
@@ -1081,6 +1109,7 @@
       const nameVal = inputName.value.trim();
       const textVal = textareaText.value.trim();
       if (!nameVal || !textVal) return;
+
       fetch(`${BACKENDURL}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1098,12 +1127,13 @@
 
     parentLi.appendChild(form);
     inputName.focus();
-  }
+  };
 
-  // Comment form event handlers and validations
-  function validateCommentForm() {
+  // Comment form validation & submission
+  commentSubmitBtn.disabled = true;
+  const validateCommentForm = () => {
     commentSubmitBtn.disabled = !(commentNameInput.value.trim() && commentTextArea.value.trim());
-  }
+  };
   commentNameInput.addEventListener('input', validateCommentForm);
   commentTextArea.addEventListener('input', validateCommentForm);
 
@@ -1129,7 +1159,7 @@
       }).catch(() => alert('Network error while posting comment.'));
   });
 
-  // Logout button clears session and shows entry screen
+  // Logout button clears session & UI reset
   logoutBtn.addEventListener('click', () => {
     clearUserSession();
     userName = null;
@@ -1137,10 +1167,10 @@
     commentNameInput.value = '';
     commentNameInput.disabled = false;
     showEntryScreen();
+    console.log('User logged out');
   });
 
-  // Entry screen login handling
-
+  // Entry screen user login
   userBtn.addEventListener('click', () => {
     let inputName = prompt('Enter your user name');
     if (!inputName) return alert('Username required');
@@ -1156,8 +1186,10 @@
     fetchFiles();
     fetchComments();
     setupUploadControls();
+    console.log('User logged in:', userName);
   });
 
+  // Entry screen admin login
   adminBtn.addEventListener('click', () => {
     let inputPassword = prompt('Enter admin password');
     if (inputPassword !== ADMIN_PASSWORD) return alert('Incorrect admin password');
@@ -1171,9 +1203,10 @@
     fetchFiles();
     fetchComments();
     setupUploadControls();
+    console.log('Admin logged in');
   });
 
-  // Enable admin login submit via form (optional)
+  // Admin login form handlers (optional UI)
   adminPasswordInput.addEventListener('input', () => {
     adminLoginSubmit.disabled = !adminPasswordInput.value.trim();
   });
@@ -1190,12 +1223,13 @@
       fetchFiles();
       fetchComments();
       setupUploadControls();
+      console.log('Admin logged in via form');
     } else {
       adminLoginError.textContent = 'Incorrect password. Try again.';
     }
   });
 
-  // Initialize app with session if available or show entry screen
+  // On page load, restore session or show entry screen
   const session = loadUserSession();
   if (session.name && session.role) {
     userName = session.name;
@@ -1207,10 +1241,60 @@
     fetchFiles();
     fetchComments();
     setupUploadControls();
+    console.log('Session restored for', userName);
   } else {
     showEntryScreen();
-  }                                 
+    console.log('No session found, showing entry');
+  }
+
+  console.log('Load runner Part 3 finished');
 });
+  window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  console.log('Load runner Part 4 started');
+
+  // Utility: validate comment form submit button state on inputs (extra safety)
+  const validateCommentForm = () => {
+    commentSubmitBtn.disabled = !(commentNameInput.value.trim() && commentTextArea.value.trim());
+  };
+
+  commentNameInput.addEventListener('input', validateCommentForm);
+  commentTextArea.addEventListener('input', validateCommentForm);
+
+  // Setup upload controls validation once more as safety (runs as standalone)
+  const setupUploadControls = () => {
+    const validateUploadForm = () => {
+      const hasFile = fileInput.files.length > 0;
+      const nameValid = anonymousCheckbox.checked || (uploaderName.value.trim().length > 0);
+      uploadBtn.disabled = !(hasFile && nameValid);
+      uploadBtn.setAttribute('aria-disabled', uploadBtn.disabled ? 'true' : 'false');
+      errorMsg.textContent = '';
+      console.log('Validated upload form', { hasFile, nameValid });
+    };
+
+    anonymousCheckbox.addEventListener('change', () => {
+      if (anonymousCheckbox.checked) {
+        uploaderName.style.display = 'none';
+        uploaderName.value = '';
+      } else {
+        uploaderName.style.display = 'block';
+        uploaderName.value = userName || '';
+      }
+      validateUploadForm();
+    });
+
+    uploaderName.addEventListener('input', validateUploadForm);
+    fileInput.addEventListener('change', validateUploadForm);
+
+    validateUploadForm();
+  };
+
+  // Export setupUploadControls for reuse
+  window.setupUploadControls = setupUploadControls;
+
+  console.log('Load runner Part 4 finished');
+});
+  
  </script>
 </body>
 </html>
