@@ -20,6 +20,10 @@ let filesMeta = []; // For demo: store file meta and comments in-memory
 function saveMeta() {
   fs.writeFileSync(path.join(UPLOADS_DIR, 'meta.json'), JSON.stringify(filesMeta, null, 2));
 }
+function saveMeta() {
+  fs.writeFileSync(path.join(UPLOADS_DIR, 'meta.json'), JSON.stringify(filesMeta, null, 2));
+}
+
 function loadMeta() {
   try {
     filesMeta = JSON.parse(fs.readFileSync(path.join(UPLOADS_DIR, 'meta.json')));
