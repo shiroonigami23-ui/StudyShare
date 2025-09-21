@@ -279,163 +279,164 @@
     </div>
   </div>
   <script>
-    // Remove demo files; fetch real data from backend
-    function fetchFiles() {
-      fetch('/files')
-        .then(res => res.json())
-        .then(files => {
-          renderFiles(files);
-        })
-        .catch(() => {
-          document.getElementById('fileList').innerHTML = '<div style="color:#ff4848;padding:16px;">Failed to load files.</div>';
-        });
+  const BACKEND_URL = "https://sharelit-1.onrender.com";
+
+function fetchFiles() {
+  fetch(`${BACKEND_URL}/files`)
+    .then(res => res.json())
+    .then(files => {
+      renderFiles(files);
+    })
+    .catch(() => {
+      document.getElementById('fileList').innerHTML = '<div style="color:#ff4848;padding:16px;">Failed to load files.</div>';
+    });
+}
+
+function renderFiles(list) {
+  const fileList = document.getElementById('fileList');
+  fileList.innerHTML = '';
+  list.forEach(file => {
+    const card = document.createElement('div');
+    card.className = 'file-card';
+
+    // Header meta
+    const header = document.createElement('div');
+    header.className = 'file-header';
+
+    const meta = document.createElement('div');
+    meta.className = 'file-meta';
+    meta.innerHTML = `<span class="file-name">${file.originalname}</span>
+      <span class="file-extra"><span class="file-uploader">${file.uploader}</span></span>
+      <span class="file-date">${new Date(file.uploadDate).toLocaleDateString()}</span>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'file-actions';
+    actions.innerHTML = `<button class="download-btn">Download</button>
+    <span class="download-count">${file.downloads || 0} Downloads</span>`;
+    actions.querySelector('.download-btn').onclick = () => {
+      window.open(`${BACKEND_URL}/download/${file.id}`, '_blank');
+    };
+
+    header.append(meta, actions);
+
+    // Comments section
+    const comments = document.createElement('div');
+    comments.className = 'comments-section';
+
+    // List comments from backend metadata
+    const commentList = document.createElement('ul');
+    commentList.className = 'comment-list';
+    (file.comments||[]).forEach(c => {
+      const item = document.createElement('li');
+      item.className = 'comment-item';
+      item.innerHTML = `<span class="comment-user">${c.name}</span>${c.text}`;
+      commentList.appendChild(item);
+    });
+
+    // Comment form (no login, but asks name)
+    const commentForm = document.createElement('form');
+    commentForm.className = 'comment-form';
+    commentForm.innerHTML = `
+      <input type="text" placeholder="Your name" required />
+      <textarea placeholder="Add comment" required></textarea>
+      <button type="submit">Comment</button>
+    `;
+    commentForm.onsubmit = function(e) {
+      e.preventDefault();
+      const name = commentForm.querySelector('input').value.trim();
+      const text = commentForm.querySelector('textarea').value.trim();
+      if (!name || !text) return;
+      // Post to backend
+      fetch(`${BACKEND_URL}/comment/${file.id}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, text})
+      }).then(r=>r.json()).then(()=>fetchFiles());
+    };
+
+    comments.append(commentList, commentForm);
+    card.append(header, comments);
+    fileList.appendChild(card);
+  });
+}
+
+// Drag & drop highlight
+const dropArea = document.getElementById('dropArea');
+dropArea.addEventListener('dragover', e => {
+  e.preventDefault(); dropArea.classList.add('dragover');
+});
+dropArea.addEventListener('dragleave', e => {
+  dropArea.classList.remove('dragover');
+});
+dropArea.addEventListener('drop', e => {
+  e.preventDefault(); dropArea.classList.remove('dragover');
+  // For file upload using drag & drop
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files;
+    validateForm();
+  }
+});
+
+const uploaderName = document.getElementById('uploaderName');
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const errorMsg = document.getElementById('errorMsg');
+const progressBar = document.getElementById('progressBar');
+
+function validateForm() {
+  errorMsg.textContent = '';
+  uploadBtn.disabled = !(fileInput.files.length > 0 && uploaderName.value.trim() !== '');
+}
+uploaderName.addEventListener('input', validateForm);
+fileInput.addEventListener('change', validateForm);
+
+uploadBtn.addEventListener('click', () => {
+  errorMsg.textContent = '';
+  const file = fileInput.files[0];
+  const name = uploaderName.value.trim();
+  if (!file || !name) return;
+  // Max 10MB validation
+  if (file.size > 10*1024*1024) {
+    errorMsg.textContent = 'File exceeds 10MB limit.';
+    return;
+  }
+  // Allowed filetype validation
+  const allowed = ['pdf','epu','mp3','jpg'];
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!allowed.includes(ext)) {
+    errorMsg.textContent = 'File type not allowed.';
+    return;
+  }
+  // Upload with progress
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('uploader', name);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `${BACKEND_URL}/upload`, true);
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      progressBar.style.width = (e.loaded/e.total*100)+'%';
     }
-
-    function renderFiles(list) {
-      const fileList = document.getElementById('fileList');
-      fileList.innerHTML = '';
-      list.forEach(file => {
-        const card = document.createElement('div');
-        card.className = 'file-card';
-
-        // Header meta
-        const header = document.createElement('div');
-        header.className = 'file-header';
-
-        const meta = document.createElement('div');
-        meta.className = 'file-meta';
-        meta.innerHTML = `<span class="file-name">${file.originalname}</span>
-          <span class="file-extra"><span class="file-uploader">${file.uploader}</span></span>
-          <span class="file-date">${new Date(file.uploadDate).toLocaleDateString()}</span>`;
-
-        const actions = document.createElement('div');
-        actions.className = 'file-actions';
-        actions.innerHTML = `<button class="download-btn">Download</button>
-        <span class="download-count">${file.downloads || 0} Downloads</span>`;
-        actions.querySelector('.download-btn').onclick = () => {
-          window.open('/download/'+file.id, '_blank');
-        };
-
-        header.append(meta, actions);
-
-        // Comments section
-        const comments = document.createElement('div');
-        comments.className = 'comments-section';
-
-        // List comments from backend metadata
-        const commentList = document.createElement('ul');
-        commentList.className = 'comment-list';
-        (file.comments||[]).forEach(c => {
-          const item = document.createElement('li');
-          item.className = 'comment-item';
-          item.innerHTML = `<span class="comment-user">${c.name}</span>${c.text}`;
-          commentList.appendChild(item);
-        });
-
-        // Comment form (no login, but asks name)
-        const commentForm = document.createElement('form');
-        commentForm.className = 'comment-form';
-        commentForm.innerHTML = `
-          <input type="text" placeholder="Your name" required />
-          <textarea placeholder="Add comment" required></textarea>
-          <button type="submit">Comment</button>
-        `;
-        commentForm.onsubmit = function(e) {
-          e.preventDefault();
-          const name = commentForm.querySelector('input').value.trim();
-          const text = commentForm.querySelector('textarea').value.trim();
-          if (!name || !text) return;
-          // Post to backend
-          fetch('/comment/'+file.id, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({name, text})
-          }).then(r=>r.json()).then(()=>fetchFiles());
-        };
-
-        comments.append(commentList, commentForm);
-        card.append(header, comments);
-        fileList.appendChild(card);
-      });
+  };
+  xhr.onload = () => {
+    progressBar.style.width = '0%';
+    if (xhr.status === 200) {
+      fetchFiles();
+      fileInput.value = '';
+      uploaderName.value = '';
+      uploadBtn.disabled = true;
+    } else {
+      errorMsg.textContent = JSON.parse(xhr.responseText).error || 'Upload failed';
     }
+  };
+  xhr.onerror = () => {
+    progressBar.style.width = '0%';
+    errorMsg.textContent = 'Network upload error';
+  };
+  xhr.send(formData);
+});
 
-    // Drag & drop highlight
-    const dropArea = document.getElementById('dropArea');
-    dropArea.addEventListener('dragover', e => {
-      e.preventDefault(); dropArea.classList.add('dragover');
-    });
-    dropArea.addEventListener('dragleave', e => {
-      dropArea.classList.remove('dragover');
-    });
-    dropArea.addEventListener('drop', e => {
-      e.preventDefault(); dropArea.classList.remove('dragover');
-      // For file upload using drag & drop
-      if (e.dataTransfer.files.length > 0) {
-        fileInput.files = e.dataTransfer.files;
-        validateForm();
-      }
-    });
-
-    const uploaderName = document.getElementById('uploaderName');
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const errorMsg = document.getElementById('errorMsg');
-    const progressBar = document.getElementById('progressBar');
-
-    function validateForm() {
-      errorMsg.textContent = '';
-      uploadBtn.disabled = !(fileInput.files.length > 0 && uploaderName.value.trim() !== '');
-    }
-    uploaderName.addEventListener('input', validateForm);
-    fileInput.addEventListener('change', validateForm);
-
-    uploadBtn.addEventListener('click', () => {
-      errorMsg.textContent = '';
-      const file = fileInput.files[0];
-      const name = uploaderName.value.trim();
-      if (!file || !name) return;
-      // Max 10MB validation
-      if (file.size > 10*1024*1024) {
-        errorMsg.textContent = 'File exceeds 10MB limit.';
-        return;
-      }
-      // Allowed filetype validation
-      const allowed = ['pdf','epu','mp3','jpg'];
-      const ext = file.name.split('.').pop().toLowerCase();
-      if (!allowed.includes(ext)) {
-        errorMsg.textContent = 'File type not allowed.';
-        return;
-      }
-      // Upload with progress
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploader', name);
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload', true);
-      xhr.upload.onprogress = e => {
-        if (e.lengthComputable) {
-          progressBar.style.width = (e.loaded/e.total*100)+'%';
-        }
-      };
-      xhr.onload = () => {
-        progressBar.style.width = '0%';
-        if (xhr.status === 200) {
-          fetchFiles();
-          fileInput.value = '';
-          uploaderName.value = '';
-          uploadBtn.disabled = true;
-        } else {
-          errorMsg.textContent = JSON.parse(xhr.responseText).error || 'Upload failed';
-        }
-      };
-      xhr.onerror = () => {
-        progressBar.style.width = '0%';
-        errorMsg.textContent = 'Network upload error';
-      };
-      xhr.send(formData);
-    });
-
-    fetchFiles();
+fetchFiles();
   </script>
 </body>
 </html>
