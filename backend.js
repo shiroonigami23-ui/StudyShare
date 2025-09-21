@@ -14,13 +14,14 @@ app.use(express.json());
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
 
-let filesMeta = []; // In-memory store for demo (use DB for prod)
+let filesMeta = []; // In-memory store for files and metadata
 
-// Helper: Save metadata to disk (for reboot safety)
+// Helper: Save metadata to disk (for persistence across restarts)
 function saveMeta() {
   fs.writeFileSync(path.join(UPLOADS_DIR, 'meta.json'), JSON.stringify(filesMeta, null, 2));
 }
 
+// Helper: Load metadata from disk
 function loadMeta() {
   try {
     filesMeta = JSON.parse(fs.readFileSync(path.join(UPLOADS_DIR, 'meta.json')));
@@ -30,7 +31,7 @@ function loadMeta() {
 }
 loadMeta();
 
-// Multer setup for uploads
+// Multer setup for file uploads
 const storage = multer.diskStorage({
   destination: UPLOADS_DIR,
   filename: (req, file, cb) => {
@@ -40,22 +41,21 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Middleware to check admin authorization via simple password header or body (for demo only)
-function adminAuthMiddleware(req, res, next) {
-  const password = req.headers['x-admin-password'] || req.body.password;
-  if (password === process.env.ADMIN_PASSWORD) {
+// Admin authorization middleware
+function adminAuth(req, res, next) {
+  const pw = req.headers['x-admin-password'] || req.body.password;
+  if (pw === process.env.ADMIN_PASSWORD) {
     next();
   } else {
     res.status(401).json({ error: 'Unauthorized' });
   }
 }
 
-// Upload endpoint
+// Upload endpoint (all uploads start as unapproved except admin uploads)
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file || !req.body.uploader) return res.status(400).json({ error: 'Missing file or uploader name' });
 
-  // Set approved true if uploader is admin, false otherwise
-  const isAdmin = req.body.uploader.toLowerCase() === 'admin';
+  const isUploaderAdmin = req.body.uploader.toLowerCase() === 'admin';
   const meta = {
     id: req.file.filename, // unique id
     originalname: req.file.originalname,
@@ -63,7 +63,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     uploadDate: new Date().toISOString(),
     downloads: 0,
     upvotes: 0,
-    approved: isAdmin,     // admin uploads auto approved
+    approved: isUploaderAdmin,
     comments: []
   };
   filesMeta.unshift(meta);
@@ -71,23 +71,25 @@ app.post('/upload', upload.single('file'), (req, res) => {
   res.json({ success: true, file: meta });
 });
 
-// List files endpoint (only approved files for non-admins)
+// List files endpoint (admins see all, users only approved)
 app.get('/files', (req, res) => {
   const isAdmin = req.headers['x-admin-password'] === process.env.ADMIN_PASSWORD;
   if (isAdmin) {
-    res.json(filesMeta); // send all for admin
+    res.json(filesMeta);
   } else {
-    res.json(filesMeta.filter(f => f.approved)); // only approved for users
+    res.json(filesMeta.filter(f => f.approved));
   }
 });
 
-// Download endpoint (+counts)
+// Download endpoint (+increment download count)
 app.get('/download/:id', (req, res) => {
   const meta = filesMeta.find(f => f.id === req.params.id);
   if (!meta) return res.status(404).json({ error: 'Not found' });
 
-  if (!meta.approved && req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
-    return res.status(403).json({ error: 'Not approved for download' });
+  // Only approve downloads for approved files or admin
+  const isAdmin = req.headers['x-admin-password'] === process.env.ADMIN_PASSWORD;
+  if (!meta.approved && !isAdmin) {
+    return res.status(403).json({ error: 'File not approved for download' });
   }
 
   const filepath = path.join(UPLOADS_DIR, req.params.id);
@@ -96,50 +98,6 @@ app.get('/download/:id', (req, res) => {
   meta.downloads = (meta.downloads || 0) + 1;
   saveMeta();
   res.download(filepath, meta.originalname);
-});
-
-// Approve file (Admin only)
-app.post('/approve/:id', adminAuthMiddleware, (req, res) => {
-  const meta = filesMeta.find(f => f.id === req.params.id);
-  if (!meta) return res.status(404).json({ error: 'File not found' });
-  meta.approved = true;
-  saveMeta();
-  res.json({ success: true });
-});
-
-// Reject file (Admin only)
-app.delete('/reject/:id', adminAuthMiddleware, (req, res) => {
-  const index = filesMeta.findIndex(f => f.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'File not found' });
-
-  // Delete file from disk too
-  const filepath = path.join(UPLOADS_DIR, filesMeta[index].id);
-  if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-
-  filesMeta.splice(index, 1);
-  saveMeta();
-  res.json({ success: true });
-});
-
-// Delete file (Admin can delete any; user can delete own)
-app.delete('/delete/:id', (req, res) => {
-  const { uploader, adminPassword } = req.body;
-  const index = filesMeta.findIndex(f => f.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'File not found' });
-
-  const fileMeta = filesMeta[index];
-  const isAdmin = adminPassword === process.env.ADMIN_PASSWORD;
-  if (!isAdmin && fileMeta.uploader !== uploader) {
-    return res.status(403).json({ error: 'Forbidden: Not allowed to delete this file' });
-  }
-
-  // Delete file from disk
-  const filepath = path.join(UPLOADS_DIR, fileMeta.id);
-  if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-
-  filesMeta.splice(index, 1);
-  saveMeta();
-  res.json({ success: true });
 });
 
 // Upvote file
@@ -152,21 +110,19 @@ app.post('/upvote/:id', (req, res) => {
   res.json({ success: true, upvotes: meta.upvotes });
 });
 
-// Post a comment with optional parentId for replies
+// Post a comment (with optional parentId for replies)
 app.post('/comment', (req, res) => {
   const { name, text, parentId } = req.body;
   if (!name || !text) return res.status(400).json({ error: 'Name and text required' });
 
-  // For simplicity store comments globally (not per file, as per frontend spec)
-  // You can adapt to store per file if needed
+  // Find which file this comment belongs to — if parentId is set for parent comment, find file by parent comment id not supported yet, so assume flat for now
+  // To keep simple, just append comments globally for demo:
+  // You may enhance logic to store comments per file for real production use
+
+  // For demo, just store comments in a global array inside filesMeta or separately
   if (!Array.isArray(filesMeta.comments)) filesMeta.comments = [];
-  filesMeta.comments.push({
-    id: Date.now() + '-' + Math.round(Math.random() * 1e9),
-    name,
-    text,
-    parentId: parentId || null,
-    date: new Date().toISOString()
-  });
+  filesMeta.comments.push({ id: Date.now() + '-' + Math.round(Math.random() * 1e9), name, text, parentId: parentId || null, date: new Date().toISOString() });
+
   saveMeta();
   res.json({ success: true, comments: filesMeta.comments });
 });
@@ -176,22 +132,59 @@ app.get('/comments', (req, res) => {
   res.json(filesMeta.comments || []);
 });
 
-// Admin dashboard: simple example endpoint (protected)
-app.post('/admin', (req, res) => {
-  const { password } = req.body;
-  if (password !== process.env.ADMIN_PASSWORD)
-    return res.status(401).json({ error: 'Unauthorized' });
-  res.json({ files: filesMeta });
+// Approve a file (admin only)
+app.post('/approve/:id', adminAuth, (req, res) => {
+  const file = filesMeta.find(f => f.id === req.params.id);
+  if (!file) return res.status(404).json({ error: 'File not found' });
+  file.approved = true;
+  saveMeta();
+  res.json({ success: true });
 });
 
-// Serve uploaded files (optional direct access)
+// Reject (delete) file (admin only)
+app.delete('/reject/:id', adminAuth, (req, res) => {
+  const index = filesMeta.findIndex(f => f.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'File not found' });
+
+  const file = filesMeta[index];
+  const filepath = path.join(UPLOADS_DIR, file.id);
+  if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+
+  filesMeta.splice(index, 1);
+  saveMeta();
+  res.json({ success: true });
+});
+
+// Delete file endpoint (admin or uploader can delete)
+app.delete('/delete/:id', adminAuth, (req, res) => {
+  const index = filesMeta.findIndex(f => f.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'File not found' });
+
+  // Optional: check uploader matches or allow admin
+  const file = filesMeta[index];
+  // In a real system, verify uploader in req.body or token
+  const isAdmin = req.headers['x-admin-password'] === process.env.ADMIN_PASSWORD;
+  if (!isAdmin && req.body.uploader !== file.uploader) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const filepath = path.join(UPLOADS_DIR, file.id);
+  if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+
+  filesMeta.splice(index, 1);
+  saveMeta();
+  res.json({ success: true });
+});
+
+// Serve uploaded files statically (optionally used internally)
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Basic root endpoint
+// Root endpoint (basic health check)
 app.get('/', (req, res) => {
   res.send('ShareLit backend is running!');
 });
 
+// Start server
 app.listen(PORT, () => {
-  console.log('Server running on', PORT);
+  console.log(`Server is listening on port ${PORT}`);
 });
