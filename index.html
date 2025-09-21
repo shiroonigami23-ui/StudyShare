@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ShareLit - Interactive File Sharing</title>
+<title>ShareLit - File Sharing</title>
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&family=Roboto&display=swap" rel="stylesheet" />
 <style>
@@ -614,18 +614,18 @@
   </div>
 
 <script>
-(() => {
-  // Backend URL, keep as used with existing server
+  window.addEventListener('DOMContentLoaded', () => {
+  // Backend URL for API calls
   const BACKENDURL = 'https://sharelit-1.onrender.com';
 
   // State variables
   let isAdmin = false;
   let userName = null;
-  let userId = null; // for user identity if needed
   let files = [];
   let commentsData = [];
   let selectedTheme = localStorage.getItem('sharelit-theme') || 'light';
 
+  // DOM Elements
   const appContainer = document.getElementById('appContainer');
   const entryScreen = document.getElementById('entryScreen');
   const userBtn = document.getElementById('userBtn');
@@ -655,9 +655,7 @@
 
   const themeButtons = [...document.querySelectorAll('.theme-btn')];
 
-  // --- Initialize ---
-
-  // Apply saved theme
+  // Apply saved or default theme
   function applyTheme(theme) {
     document.body.classList.remove('theme-dark', 'theme-green', 'theme-light');
     if (theme === 'dark') {
@@ -667,7 +665,6 @@
     } else {
       document.body.classList.add('theme-light');
     }
-    // Highlight selected theme button
     themeButtons.forEach(btn => {
       btn.classList.toggle('selected', btn.getAttribute('data-theme') === theme);
     });
@@ -682,9 +679,8 @@
     });
   });
 
-  // --- Entry Screen Logic ---
+  // Entry Screen Logic
 
-  // User mode button
   userBtn.addEventListener('click', () => {
     isAdmin = false;
     entryScreen.style.display = 'none';
@@ -692,7 +688,6 @@
     loadUserEntry();
   });
 
-  // Admin button shows password form
   adminBtn.addEventListener('click', () => {
     userBtn.style.display = 'none';
     adminBtn.style.display = 'none';
@@ -700,14 +695,11 @@
     adminPasswordInput.focus();
   });
 
-  // Enable admin login button only if password is entered
   adminPasswordInput.addEventListener('input', () => {
     adminLoginSubmit.disabled = !adminPasswordInput.value.trim();
   });
 
-  // Hardcoded admin password for demo (change to secure method/server validation normally)
-  // For demo purpose here only
-  const ADMIN_PASSWORD = 'admin123'; // Replace with secure system in real use
+  const ADMIN_PASSWORD = 'admin123'; // For demo only
 
   adminLoginForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -716,7 +708,6 @@
       isAdmin = true;
       entryScreen.style.display = 'none';
       mainApp.style.display = 'flex';
-      // Clear and reset admin login form on success
       adminPasswordInput.value = '';
       adminLoginSubmit.disabled = true;
       adminLoginError.textContent = '';
@@ -727,19 +718,16 @@
     }
   });
 
-  // --- Username Management for User Mode ---
-
+  // User entry load
   function loadUserEntry() {
-        // Check localStorage for stored username
     const storedName = localStorage.getItem('sharelit-username');
     if (storedName) {
       userName = storedName;
       welcomeMsg.textContent = `Welcome, ${userName}!`;
       uploaderName.value = userName;
-      uploaderName.disabled = true; // fixed username once entered
+      uploaderName.disabled = true;
       anonymousCheckbox.checked = false;
     } else {
-      // ask for a name only once by triggering input focus
       uploaderName.value = '';
       uploaderName.disabled = false;
       welcomeMsg.textContent = 'Welcome! Please enter your name below to upload files.';
@@ -750,9 +738,8 @@
     fetchComments();
   }
 
-  // Admin entry
+  // Admin entry load
   function loadAdminEntry() {
-    // Admin no username restriction
     userName = 'Admin';
     welcomeMsg.textContent = `Welcome, Admin!`;
     uploaderName.value = 'Admin';
@@ -763,7 +750,7 @@
     fetchComments();
   }
 
-  // Enable or disable upload button based on form validation
+  // Upload form controls validation
   function setupUploadControls() {
     function validateUploadForm() {
       const hasFile = fileInput.files.length > 0;
@@ -773,7 +760,6 @@
       errorMsg.textContent = '';
     }
     uploaderName.addEventListener('input', () => {
-      // If user enabled anonymous, disable name input
       if (anonymousCheckbox.checked) {
         uploaderName.disabled = true;
         uploaderName.value = '';
@@ -782,7 +768,7 @@
       }
       validateUploadForm();
     });
-    anonymousCheckbox.addEventListener('change', e => {
+    anonymousCheckbox.addEventListener('change', () => {
       if (anonymousCheckbox.checked) {
         uploaderName.disabled = true;
         uploaderName.value = '';
@@ -790,7 +776,7 @@
         uploaderName.disabled = false;
         if (userName && !isAdmin) {
           uploaderName.value = userName;
-          uploaderName.disabled = true; // lock username for user after first entry
+          uploaderName.disabled = true;
         }
       }
       validateUploadForm();
@@ -799,7 +785,7 @@
     validateUploadForm();
   }
 
-  // --- Drag & Drop area handling ---
+  // Drag & Drop handling
   dropArea.addEventListener('dragover', e => {
     e.preventDefault();
     dropArea.classList.add('dragover');
@@ -819,7 +805,7 @@
   });
   dropArea.addEventListener('click', () => fileInput.click());
 
-  // --- Upload file function ---
+  // Upload file function
   uploadBtn.addEventListener('click', () => {
     errorMsg.textContent = '';
     if (!fileInput.files.length) {
@@ -827,19 +813,16 @@
       return;
     }
     let file = fileInput.files[0];
-    // Validate size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       errorMsg.textContent = 'File exceeds 10MB limit.';
       return;
     }
-    // Validate type
     const allowed = ['pdf', 'epub', 'mp3', 'jpg'];
     const ext = file.name.split('.').pop().toLowerCase();
     if (!allowed.includes(ext)) {
       errorMsg.textContent = `File type .${ext} not allowed.`;
       return;
     }
-    // Determine uploader name
     let uploader = '';
     if (anonymousCheckbox.checked) {
       uploader = 'Anonymous-user';
@@ -854,7 +837,6 @@
         return;
       }
       uploader = val;
-      // Store username for user once provided
       if (!isAdmin) {
         localStorage.setItem('sharelit-username', uploader);
         userName = uploader;
@@ -863,7 +845,6 @@
       }
     }
 
-    // AJAX upload
     const formData = new FormData();
     formData.append('file', file);
     formData.append('uploader', uploader);
@@ -876,34 +857,35 @@
       method: 'POST',
       body: formData,
     })
-    .then(res => res.json())
-    .then(data => {
-      progressBar.style.width = '0%';
-      progressBar.parentElement.style.display = 'none';
-      uploadBtn.disabled = false;
-      uploadBtn.setAttribute('aria-disabled', 'false');
-      if (data.error) {
-        errorMsg.textContent = data.error || 'Upload failed.';
-      } else {
-        errorMsg.textContent = '';
-        fileInput.value = '';
-        uploadBtn.disabled = true;
-        // Refresh file list
-        fetchFiles();
-      }
-    })
-    .catch(() => {
-      progressBar.style.width = '0%';
-      progressBar.parentElement.style.display = 'none';
-      uploadBtn.disabled = false;
-      uploadBtn.setAttribute('aria-disabled', 'false');
-      errorMsg.textContent = 'Network error during upload.';
-    });
+      .then(res => res.json())
+      .then(data => {
+        progressBar.style.width = '0%';
+        progressBar.parentElement.style.display = 'none';
+        uploadBtn.disabled = false;
+        uploadBtn.setAttribute('aria-disabled', 'false');
+        if (data.error) {
+          errorMsg.textContent = data.error || 'Upload failed.';
+        } else {
+          errorMsg.textContent = '';
+          fileInput.value = '';
+          uploadBtn.disabled = true;
+          fetchFiles();
+        }
+      })
+      .catch(() => {
+        progressBar.style.width = '0%';
+        progressBar.parentElement.style.display = 'none';
+        uploadBtn.disabled = false;
+        uploadBtn.setAttribute('aria-disabled', 'false');
+        errorMsg.textContent = 'Network error during upload.';
+      });
   });
 
-  // --- Fetch and render file list ---
+  // Fetch and render files
   function fetchFiles() {
-    fetch(`${BACKENDURL}/files`)
+    fetch(`${BACKENDURL}/files`, {
+      headers: isAdmin ? { 'x-admin-password': ADMIN_PASSWORD } : {}
+    })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -918,6 +900,7 @@
       });
   }
 
+  // Render list of files
   function renderFiles() {
     fileList.innerHTML = '';
     if (files.length === 0) {
@@ -925,29 +908,23 @@
       return;
     }
     files.forEach(file => {
-      // File card container
       const card = document.createElement('div');
       card.className = 'file-card';
 
-      // Header: file info left + actions right
       const header = document.createElement('div');
       header.className = 'file-header';
 
-      // Meta info container
       const meta = document.createElement('div');
       meta.className = 'file-meta';
 
-      // Filename (truncate overflow)
       const nameSpan = document.createElement('span');
       nameSpan.className = 'file-name';
       nameSpan.textContent = file.originalname || 'Unknown file';
 
-      // Uploader
       const uploaderSpan = document.createElement('span');
       uploaderSpan.className = 'file-uploader';
       uploaderSpan.textContent = file.uploader || 'Anonymous';
 
-      // Upload date
       const dateSpan = document.createElement('span');
       dateSpan.className = 'file-date';
       try {
@@ -956,18 +933,16 @@
         dateSpan.textContent = '';
       }
 
-      // Extras container
       const extras = document.createElement('span');
       extras.className = 'file-extra';
 
-      // Approval status for admin
       if (isAdmin) {
         if (file.approved) {
           extras.textContent = 'Approved';
           extras.style.color = 'var(--accent-color)';
         } else {
           extras.textContent = 'Pending approval';
-          extras.style.color = '#f97316'; // orange
+          extras.style.color = '#f97316';
         }
       }
 
@@ -976,11 +951,9 @@
       meta.appendChild(dateSpan);
       meta.appendChild(extras);
 
-      // Actions container
       const actions = document.createElement('div');
       actions.className = 'file-actions';
 
-      // Download button - opens in new tab/window
       const downloadBtn = document.createElement('button');
       downloadBtn.className = 'btn-small download-btn';
       downloadBtn.setAttribute('aria-label', `Download file ${file.originalname}`);
@@ -993,18 +966,15 @@
         }
       });
 
-      // Upvote button with small count
       const upvoteBtn = document.createElement('button');
       upvoteBtn.className = 'btn-small btn-upvote';
       upvoteBtn.setAttribute('aria-label', `Upvote file ${file.originalname}`);
       upvoteBtn.innerHTML = '👍 ' + (file.upvotes || 0);
       upvoteBtn.addEventListener('click', () => {
-        // Call API to upvote
         fetch(`${BACKENDURL}/upvote/${file.id}`, { method: 'POST' })
           .then(res => res.json())
           .then(data => {
             if (data.success) {
-              // Increment local count and update button
               file.upvotes = (file.upvotes || 0) + 1;
               upvoteBtn.innerHTML = '👍 ' + file.upvotes;
             }
@@ -1014,9 +984,7 @@
           });
       });
 
-      // Delete button if allowed
-      const canDelete =
-        isAdmin || (!isAdmin && file.uploader && userName && file.uploader === userName);
+      const canDelete = isAdmin || (!isAdmin && file.uploader && userName && file.uploader === userName);
       if (canDelete) {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn-small btn-delete';
@@ -1024,7 +992,11 @@
         deleteBtn.textContent = 'Delete';
         deleteBtn.addEventListener('click', () => {
           if (confirm(`Are you sure you want to delete "${file.originalname}"?`)) {
-            fetch(`${BACKENDURL}/delete/${file.id}`, { method: 'DELETE' })
+            fetch(`${BACKENDURL}/delete/${file.id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uploader: isAdmin ? 'Admin' : userName, adminPassword: isAdmin ? ADMIN_PASSWORD : null })
+            })
               .then(res => res.json())
               .then(data => {
                 if (data.success) {
@@ -1041,7 +1013,6 @@
         actions.appendChild(deleteBtn);
       }
 
-      // Approve/reject buttons for admin on unapproved files
       if (isAdmin && !file.approved) {
         const approveBtn = document.createElement('button');
         approveBtn.className = 'btn-small';
@@ -1050,7 +1021,7 @@
         approveBtn.textContent = 'Approve';
         approveBtn.setAttribute('aria-label', `Approve file ${file.originalname}`);
         approveBtn.addEventListener('click', () => {
-          fetch(`${BACKENDURL}/approve/${file.id}`, { method: 'POST' })
+          fetch(`${BACKENDURL}/approve/${file.id}`, { method: 'POST', headers: { 'x-admin-password': ADMIN_PASSWORD } })
             .then(res => res.json())
             .then(data => {
               if (data.success) fetchFiles();
@@ -1066,7 +1037,7 @@
         rejectBtn.setAttribute('aria-label', `Reject file ${file.originalname}`);
         rejectBtn.addEventListener('click', () => {
           if (confirm('Rejecting will delete the file. Proceed?')) {
-            fetch(`${BACKENDURL}/reject/${file.id}`, { method: 'DELETE' })
+            fetch(`${BACKENDURL}/reject/${file.id}`, { method: 'DELETE', headers: { 'x-admin-password': ADMIN_PASSWORD } })
               .then(res => res.json())
               .then(data => {
                 if (data.success) fetchFiles();
@@ -1089,9 +1060,8 @@
     });
   }
 
-  // --- COMMENTS SECTION ---
+  // Comments Section
 
-  // Fetch comments, render comments and replies
   function fetchComments() {
     fetch(`${BACKENDURL}/comments`)
       .then(res => res.json())
@@ -1108,10 +1078,8 @@
       });
   }
 
-  // Render hierarchical comments with replies
   function renderComments() {
     commentList.innerHTML = '';
-    // Group comments by id and replies by parentId
     const map = {};
     commentsData.forEach(c => {
       c.replies = [];
@@ -1126,7 +1094,6 @@
       }
     });
 
-    // Recursive render function
     function createCommentItem(c) {
       const li = document.createElement('li');
       li.className = 'comment-item';
@@ -1141,13 +1108,11 @@
       header.appendChild(userSpan);
       li.appendChild(header);
 
-      // Text
       const textP = document.createElement('p');
       textP.className = 'comment-text';
       textP.textContent = c.text;
       li.appendChild(textP);
 
-      // Reply button
       const replyBtn = document.createElement('button');
       replyBtn.className = 'comment-reply-btn';
       replyBtn.textContent = 'Reply';
@@ -1156,7 +1121,6 @@
       });
       li.appendChild(replyBtn);
 
-      // Replies nested list
       if (c.replies && c.replies.length > 0) {
         const repliesUl = document.createElement('ul');
         repliesUl.className = 'reply-list';
@@ -1168,15 +1132,12 @@
       return li;
     }
 
-    // Render root comments only here
     rootComments.forEach(c => {
       commentList.appendChild(createCommentItem(c));
     });
   }
 
-  // Show inline reply form under the comment that was replied to
   function showReplyForm(parentLi, parentId) {
-    // Remove existing reply form if any
     const existingForm = document.getElementById('inlineReplyForm');
     if (existingForm) existingForm.remove();
 
@@ -1212,7 +1173,6 @@
       const nameVal = inputName.value.trim();
       const textVal = textareaText.value.trim();
       if (!nameVal || !textVal) return;
-      // Post reply to backend
       fetch(`${BACKENDURL}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1222,23 +1182,22 @@
           parentId: parentId
         }),
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          fetchComments();
-          form.remove();
-        } else {
-          alert('Failed to post reply.');
-        }
-      })
-      .catch(() => alert('Network error while posting reply.'));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            fetchComments();
+            form.remove();
+          } else {
+            alert('Failed to post reply.');
+          }
+        })
+        .catch(() => alert('Network error while posting reply.'));
     });
 
     parentLi.appendChild(form);
     inputName.focus();
   }
 
-  // Main comment form validation & submit
   function validateCommentForm() {
     commentSubmitBtn.disabled = !(commentNameInput.value.trim() && commentTextArea.value.trim());
   }
@@ -1254,27 +1213,25 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nameVal, text: textVal }),
     })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        commentNameInput.value = '';
-        commentTextArea.value = '';
-        commentSubmitBtn.disabled = true;
-        fetchComments();
-      } else {
-        alert('Failed to post comment.');
-      }
-    })
-    .catch(() => alert('Network error while posting comment.'));
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          commentNameInput.value = '';
+          commentTextArea.value = '';
+          commentSubmitBtn.disabled = true;
+          fetchComments();
+        } else {
+          alert('Failed to post comment.');                                          
+        }
+      })
+      .catch(() => alert('Network error while posting comment.'));
   });
 
-  // --- Initialize app ---
+  // Initial interface setup
 
-  // On load, show only entry screen
   mainApp.style.display = 'none';
   entryScreen.style.display = 'flex';
 
-  // On uploaderName blur, store username if user mode
   uploaderName.addEventListener('blur', () => {
     if (!isAdmin && uploaderName.value.trim().length > 0) {
       userName = uploaderName.value.trim();
@@ -1284,7 +1241,7 @@
       uploadBtn.disabled = !fileInput.files.length;
     }
   });
-        
+});
  </script>
 </body>
 </html>
