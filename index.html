@@ -793,11 +793,15 @@ window.addEventListener('DOMContentLoaded', () => {
       errorMsg.textContent = '';
     }
     anonymousCheckbox.addEventListener('change', () => {
-      validateUploadForm();
-    });
-    fileInput.addEventListener('change', validateUploadForm);
-    validateUploadForm();
+  if (anonymousCheckbox.checked) {
+    uploaderName.style.display = 'none';
+    uploaderName.value = '';
+  } else {
+    uploaderName.style.display = 'block';
+    uploaderName.value = userName;
   }
+  validateUploadForm();
+  });
 
   dropArea.addEventListener('dragover', e => {
     e.preventDefault();
