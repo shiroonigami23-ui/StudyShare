@@ -614,19 +614,11 @@
   </div>
 
 <script>
-  
-window.addEventListener('DOMContentLoaded', () => {
+ window.addEventListener('DOMContentLoaded', () => {
   const BACKENDURL = 'https://sharelit-1.onrender.com';
-  const ADMIN_PASSWORD = 'admin123';
+  const ADMIN_PASSWORD = 'admin123'; // MUST MATCH backend's environment variable value
 
-  let userName = null;
-  let isAdmin = false;
-  let files = [];
-  let commentsData = [];
-  let selectedTheme = localStorage.getItem('sharelit-theme') || 'light';
-
-  // Elements
-  const appContainer = document.getElementById('appContainer');
+  // Cached DOM Elements
   const entryScreen = document.getElementById('entryScreen');
   const userBtn = document.getElementById('userBtn');
   const adminBtn = document.getElementById('adminBtn');
@@ -640,6 +632,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const dropArea = document.getElementById('dropArea');
   const fileInput = document.getElementById('fileInput');
+  const uploaderName = document.getElementById('uploaderName');
   const anonymousCheckbox = document.getElementById('anonymousCheckbox');
   const uploadBtn = document.getElementById('uploadBtn');
   const errorMsg = document.getElementById('errorMsg');
@@ -655,14 +648,24 @@ window.addEventListener('DOMContentLoaded', () => {
   const themeButtons = [...document.querySelectorAll('.theme-btn')];
   const logoutBtn = document.getElementById('logoutBtn');
 
+  // Application State
+  let userName = null;
+  let isAdmin = false;
+  let files = [];
+  let commentsData = [];
+  let selectedTheme = localStorage.getItem('sharelit-theme') || 'light';
+
+  // --- Helper Functions ---
+
+  // Save/Load session
   function saveUserSession(name, role) {
     localStorage.setItem('sharelit-username', name);
     localStorage.setItem('sharelit-role', role);
   }
   function loadUserSession() {
     return {
-      name: localStorage.getItem('sharelit-username'),
-      role: localStorage.getItem('sharelit-role')
+      name: localStorage.getItem('sharelit-username')||null,
+      role: localStorage.getItem('sharelit-role')||null
     };
   }
   function clearUserSession() {
@@ -670,28 +673,25 @@ window.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('sharelit-role');
   }
 
+  // Theme management
   function applyTheme(theme) {
     document.body.classList.remove('theme-dark', 'theme-green', 'theme-light');
-    if (theme === 'dark') {
-      document.body.classList.add('theme-dark');
-    } else if (theme === 'green') {
-      document.body.classList.add('theme-green');
-    } else {
-      document.body.classList.add('theme-light');
-    }
-    themeButtons.forEach(btn => {
-      btn.classList.toggle('selected', btn.getAttribute('data-theme') === theme);
-    });
+    if (theme === 'dark') document.body.classList.add('theme-dark');
+    else if (theme === 'green') document.body.classList.add('theme-green');
+    else document.body.classList.add('theme-light');
+
+    themeButtons.forEach(btn =>
+      btn.classList.toggle('selected', btn.getAttribute('data-theme') === theme)
+    );
     localStorage.setItem('sharelit-theme', theme);
   }
   applyTheme(selectedTheme);
-  themeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedTheme = btn.getAttribute('data-theme');
-      applyTheme(selectedTheme);
-    });
-  });
+  themeButtons.forEach(btn => btn.addEventListener('click', () => {
+    selectedTheme = btn.getAttribute('data-theme');
+    applyTheme(selectedTheme);
+  }));
 
+  // Show or Hide Screens
   function showEntryScreen() {
     entryScreen.style.display = 'flex';
     mainApp.style.display = 'none';
@@ -702,103 +702,44 @@ window.addEventListener('DOMContentLoaded', () => {
     adminLoginSubmit.disabled = true;
     adminLoginError.textContent = '';
   }
+  function showAdminLogin() {
+    adminLoginForm.style.display = 'flex';
+    userBtn.style.display = 'none';
+    adminBtn.style.display = 'none';
+    adminPasswordInput.focus();
+  }
   function showMainApp() {
     entryScreen.style.display = 'none';
     mainApp.style.display = 'flex';
   }
 
-  function loadAppData() {
-    fetchFiles();
-    fetchComments();
-    setupUploadControls();
-  }
-
-  // Check session on load
-  const session = loadUserSession();
-  if (session.name && session.role) {
-    userName = session.name;
-    isAdmin = session.role === 'admin';
-    welcomeMsg.textContent = `Welcome, ${userName}!`;
-    showMainApp();
-    loadAppData();
-    commentNameInput.value = userName;
-    commentNameInput.disabled = true;
-  } else {
-    showEntryScreen();
-  }
-
-  userBtn.addEventListener('click', () => {
-    let enteredName = prompt('Enter your username');
-    if (!enteredName) return alert('Username required');
-    enteredName = enteredName.trim();
-    if (!enteredName) return alert('Username cannot be empty');
-    userName = enteredName;
-    isAdmin = false;
-    saveUserSession(userName, 'user');
-    welcomeMsg.textContent = `Welcome, ${userName}!`;
-    commentNameInput.value = userName;
-    commentNameInput.disabled = true;
-    showMainApp();
-    loadAppData();
-  });
-
-  adminBtn.addEventListener('click', () => {
-    let enteredPw = prompt('Enter admin password');
-    if (enteredPw !== ADMIN_PASSWORD) return alert('Incorrect admin password');
-    userName = 'Admin';
-    isAdmin = true;
-    saveUserSession(userName, 'admin');
-    welcomeMsg.textContent = `Welcome, Admin!`;
-    commentNameInput.value = 'Admin';
-    commentNameInput.disabled = true;
-    showMainApp();
-    loadAppData();
-  });
-
-  adminPasswordInput.addEventListener('input', () => {
-    adminLoginSubmit.disabled = !adminPasswordInput.value.trim();
-  });
-
-  adminLoginForm.addEventListener('submit', e => {
-    e.preventDefault();
-    if (adminPasswordInput.value.trim() === ADMIN_PASSWORD) {
-      userName = 'Admin';
-      isAdmin = true;
-      saveUserSession(userName, 'admin');
-      welcomeMsg.textContent = `Welcome, Admin!`;
-      commentNameInput.value = 'Admin';
-      commentNameInput.disabled = true;
-      showMainApp();
-      loadAppData();
-    } else {
-      adminLoginError.textContent = 'Incorrect password. Try again.';
-    }
-  });
-
-  logoutBtn.addEventListener('click', () => {
-    clearUserSession();
-    userName = null;
-    isAdmin = false;
-    commentNameInput.value = '';
-    commentNameInput.disabled = false;
-    showEntryScreen();
-  });
-
+  // Initialize the uploader name field UI and validation
   function setupUploadControls() {
     function validateUploadForm() {
       const hasFile = fileInput.files.length > 0;
-      const nameValid = true; // uploader name fixed, no input needed
+      const nameValid = anonymousCheckbox.checked || (uploaderName.value.trim().length > 0);
       uploadBtn.disabled = !(hasFile && nameValid);
       uploadBtn.setAttribute('aria-disabled', uploadBtn.disabled ? 'true' : 'false');
       errorMsg.textContent = '';
     }
+
     anonymousCheckbox.addEventListener('change', () => {
+      if (anonymousCheckbox.checked) {
+        uploaderName.style.display = 'none';
+        uploaderName.value = '';
+      } else {
+        uploaderName.style.display = 'block';
+        uploaderName.value = userName || '';
+      }
       validateUploadForm();
     });
+    uploaderName.addEventListener('input', validateUploadForm);
     fileInput.addEventListener('change', validateUploadForm);
+
     validateUploadForm();
   }
 
+  // Prevent default drag/drop behaviors and handle drop files
   dropArea.addEventListener('dragover', e => {
     e.preventDefault();
     dropArea.classList.add('dragover');
@@ -818,6 +759,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   dropArea.addEventListener('click', () => fileInput.click());
 
+  // Upload a file
   uploadBtn.addEventListener('click', () => {
     errorMsg.textContent = '';
     if (!fileInput.files.length) {
@@ -829,26 +771,19 @@ window.addEventListener('DOMContentLoaded', () => {
       errorMsg.textContent = 'File exceeds 10MB limit.';
       return;
     }
-    const allowed = ['pdf', 'epub', 'mp3', 'jpg'];
+    const allowedExtensions = ['pdf', 'epub', 'mp3', 'jpg'];
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(ext)) {
+    if (!allowedExtensions.includes(ext)) {
       errorMsg.textContent = `File type .${ext} not allowed.`;
       return;
     }
-    let uploader = '';
-    if (anonymousCheckbox.checked) {
-      uploader = 'Anonymous-user';
-    } else if (isAdmin) {
-      uploader = 'Admin';
-    } else if (userName) {
-      uploader = userName;
-    } else {
-      uploader = 'Anonymous-user'; // fallback, should not occur
-    }
+
+    const uploader = anonymousCheckbox.checked ? 'Anonymous-user' : (isAdmin ? 'Admin' : (userName || 'Anonymous-user'));
 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('uploader', uploader);
+
     progressBar.style.width = '0%';
     progressBar.parentElement.style.display = 'block';
     uploadBtn.disabled = true;
@@ -857,8 +792,7 @@ window.addEventListener('DOMContentLoaded', () => {
     fetch(`${BACKENDURL}/upload`, {
       method: 'POST',
       body: formData,
-    })
-      .then(res => res.json())
+    }).then(res => res.json())
       .then(data => {
         progressBar.style.width = '0%';
         progressBar.parentElement.style.display = 'none';
@@ -872,8 +806,7 @@ window.addEventListener('DOMContentLoaded', () => {
           uploadBtn.disabled = true;
           fetchFiles();
         }
-      })
-      .catch(() => {
+      }).catch(() => {
         progressBar.style.width = '0%';
         progressBar.parentElement.style.display = 'none';
         uploadBtn.disabled = false;
@@ -882,11 +815,11 @@ window.addEventListener('DOMContentLoaded', () => {
       });
   });
 
+  // Fetch and render file list
   function fetchFiles() {
     fetch(`${BACKENDURL}/files`, {
       headers: isAdmin ? { 'x-admin-password': ADMIN_PASSWORD } : {}
-    })
-      .then(res => res.json())
+    }).then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
           files = data;
@@ -894,12 +827,10 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
           fileList.innerHTML = '<div style="color:#f44336; padding:16px; text-align:center;">Failed to load files.</div>';
         }
-      })
-      .catch(() => {
+      }).catch(() => {
         fileList.innerHTML = '<div style="color:#f44336; padding:16px; text-align:center;">Failed to load files.</div>';
       });
   }
-
   function renderFiles() {
     fileList.innerHTML = '';
     if (files.length === 0) {
@@ -910,9 +841,6 @@ window.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'file-card';
 
-      const header = document.createElement('div');
-      header.className = 'file-header';
-
       const meta = document.createElement('div');
       meta.className = 'file-meta';
 
@@ -922,52 +850,41 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const uploaderSpan = document.createElement('span');
       uploaderSpan.className = 'file-uploader';
-      uploaderSpan.textContent = file.uploader || 'Anonymous';
+      uploaderSpan.textContent = `Uploader: ${file.uploader || 'Anonymous'}`;
 
       const dateSpan = document.createElement('span');
       dateSpan.className = 'file-date';
       try {
-        dateSpan.textContent = new Date(file.uploadDate).toLocaleDateString();
+        dateSpan.textContent = `Uploaded: ${new Date(file.uploadDate).toLocaleDateString()}`;
       } catch {
         dateSpan.textContent = '';
       }
 
-      const extras = document.createElement('span');
-      extras.className = 'file-extra';
-
-      if (isAdmin) {
-        if (file.approved) {
-          extras.textContent = 'Approved';
-          extras.style.color = 'var(--accent-color)';
-        } else {
-          extras.textContent = 'Pending approval';
-          extras.style.color = '#f97316';
-        }
-      }
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'file-status';
+      statusSpan.textContent = file.approved ? 'Approved' : 'Pending approval';
+      statusSpan.style.color = file.approved ? 'var(--accent-color)' : '#f97316';
 
       meta.appendChild(nameSpan);
       meta.appendChild(uploaderSpan);
       meta.appendChild(dateSpan);
-      meta.appendChild(extras);
+      meta.appendChild(statusSpan);
 
       const actions = document.createElement('div');
       actions.className = 'file-actions';
 
       const downloadBtn = document.createElement('button');
       downloadBtn.className = 'btn-small download-btn';
-      downloadBtn.setAttribute('aria-label', `Download file ${file.originalname}`);
+      downloadBtn.setAttribute('aria-label', `Download ${file.originalname}`);
       downloadBtn.textContent = 'Download';
+      downloadBtn.disabled = !file.approved && !isAdmin;
       downloadBtn.addEventListener('click', () => {
-        if (file.approved || isAdmin) {
-          window.open(`${BACKENDURL}/download/${file.id}`, '_blank', 'noopener');
-        } else {
-          alert('This file is awaiting admin approval.');
-        }
+        window.open(`${BACKENDURL}/download/${file.id}`, '_blank', 'noopener');
       });
 
       const upvoteBtn = document.createElement('button');
       upvoteBtn.className = 'btn-small btn-upvote';
-      upvoteBtn.setAttribute('aria-label', `Upvote file ${file.originalname}`);
+      upvoteBtn.setAttribute('aria-label', `Upvote ${file.originalname}`);
       upvoteBtn.innerHTML = '👍 ' + (file.upvotes || 0);
       upvoteBtn.addEventListener('click', () => {
         fetch(`${BACKENDURL}/upvote/${file.id}`, { method: 'POST' })
@@ -977,88 +894,78 @@ window.addEventListener('DOMContentLoaded', () => {
               file.upvotes = (file.upvotes || 0) + 1;
               upvoteBtn.innerHTML = '👍 ' + file.upvotes;
             }
-          })
-          .catch(() => {
-            alert('Failed to upvote. Try again later.');
-          });
+          }).catch(() => alert('Failed to upvote. Try again later.'));
       });
 
-      const canDelete = isAdmin || (!isAdmin && file.uploader && userName && file.uploader === userName);
-      if (canDelete) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn-small btn-delete';
-        deleteBtn.setAttribute('aria-label', `Delete file ${file.originalname}`);
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', () => {
-          if (confirm(`Are you sure you want to delete "${file.originalname}"?`)) {
-            fetch(`${BACKENDURL}/delete/${file.id}`, {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uploader: isAdmin ? 'Admin' : userName, adminPassword: isAdmin ? ADMIN_PASSWORD : null })
-            })
-              .then(res => res.json())
-              .then(data => {
-                if (data.success) {
-                  fetchFiles();
-                } else {
-                  alert('Delete failed.');
-                }
-              })
-              .catch(() => {
-                alert('Delete failed.');
-              });
-          }
-        });
-        actions.appendChild(deleteBtn);
-      }
+      actions.appendChild(downloadBtn);
+      actions.appendChild(upvoteBtn);
 
+      // Show approve/reject if admin and file not approved
       if (isAdmin && !file.approved) {
         const approveBtn = document.createElement('button');
-        approveBtn.className = 'btn-small';
-        approveBtn.style.background = 'var(--accent-color)';
-        approveBtn.style.color = 'white';
+        approveBtn.className = 'btn-small btn-approve';
         approveBtn.textContent = 'Approve';
-        approveBtn.setAttribute('aria-label', `Approve file ${file.originalname}`);
         approveBtn.addEventListener('click', () => {
-          fetch(`${BACKENDURL}/approve/${file.id}`, { method: 'POST', headers: { 'x-admin-password': ADMIN_PASSWORD } })
-            .then(res => res.json())
-            .then(data => {
-              if (data.success) fetchFiles();
-              else alert('Approve failed.');
-            })
-            .catch(() => alert('Approve failed.'));
+          if (confirm(`Approve file "${file.originalname}"?`)) {
+            fetch(`${BACKENDURL}/approve/${file.id}`, {
+              method: 'POST',
+              headers: { 'x-admin-password': ADMIN_PASSWORD }
+            }).then(res => res.json())
+              .then(data => {
+                if (data.success) fetchFiles();
+                else alert('Approve failed.');
+              }).catch(() => alert('Approve failed.'));
+          }
         });
         actions.appendChild(approveBtn);
 
         const rejectBtn = document.createElement('button');
-        rejectBtn.className = 'btn-small btn-delete';
+        rejectBtn.className = 'btn-small btn-reject';
         rejectBtn.textContent = 'Reject';
-        rejectBtn.setAttribute('aria-label', `Reject file ${file.originalname}`);
         rejectBtn.addEventListener('click', () => {
-          if (confirm('Rejecting will delete the file. Proceed?')) {
-            fetch(`${BACKENDURL}/reject/${file.id}`, { method: 'DELETE', headers: { 'x-admin-password': ADMIN_PASSWORD } })
-              .then(res => res.json())
+          if (confirm(`Reject and delete file "${file.originalname}"?`)) {
+            fetch(`${BACKENDURL}/reject/${file.id}`, {
+              method: 'DELETE',
+              headers: { 'x-admin-password': ADMIN_PASSWORD }
+            }).then(res => res.json())
               .then(data => {
                 if (data.success) fetchFiles();
                 else alert('Reject failed.');
-              })
-              .catch(() => alert('Reject failed.'));
+              }).catch(() => alert('Reject failed.'));
           }
         });
         actions.appendChild(rejectBtn);
       }
 
-      actions.appendChild(downloadBtn);
-      actions.appendChild(upvoteBtn);
+      // Users or Admin can delete own files (check ownership or admin)
+      const canDelete = isAdmin || (file.uploader && file.uploader === userName);
+      if (canDelete) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-small btn-delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+          if (confirm(`Delete file "${file.originalname}"?`)) {
+            fetch(`${BACKENDURL}/delete/${file.id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', 'x-admin-password': isAdmin ? ADMIN_PASSWORD : '' },
+              body: JSON.stringify({ uploader: isAdmin ? 'Admin' : userName, adminPassword: isAdmin ? ADMIN_PASSWORD : null })
+            }).then(res => res.json())
+              .then(data => {
+                if (data.success) fetchFiles();
+                else alert('Delete failed.');
+              }).catch(() => alert('Delete failed.'));
+          }
+        });
+        actions.appendChild(deleteBtn);
+      }
 
-      header.appendChild(meta);
-      header.appendChild(actions);
-      card.appendChild(header);
-
+      card.appendChild(meta);
+      card.appendChild(actions);
       fileList.appendChild(card);
     });
   }
 
+  // Fetch and render all comments (flat)
   function fetchComments() {
     fetch(`${BACKENDURL}/comments`)
       .then(res => res.json())
@@ -1075,8 +982,15 @@ window.addEventListener('DOMContentLoaded', () => {
       });
   }
 
+  // Render comments with nested replies
   function renderComments() {
     commentList.innerHTML = '';
+    if (commentsData.length === 0) {
+      commentList.innerHTML = '<p>No comments yet.</p>';
+      return;
+    }
+
+    // Organize comments by parentId
     const map = {};
     commentsData.forEach(c => {
       c.replies = [];
@@ -1118,22 +1032,19 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       li.appendChild(replyBtn);
 
-      if (c.replies && c.replies.length > 0) {
+      if (c.replies.length) {
         const repliesUl = document.createElement('ul');
-        repliesUl.className = 'reply-list';
-        c.replies.forEach(rc => {
-          repliesUl.appendChild(createCommentItem(rc));
-        });
+        repliesUl.className = 'replies-list';
+        c.replies.forEach(rc => repliesUl.appendChild(createCommentItem(rc)));
         li.appendChild(repliesUl);
       }
+
       return li;
     }
-
-    rootComments.forEach(c => {
-      commentList.appendChild(createCommentItem(c));
-    });
+    rootComments.forEach(c => commentList.appendChild(createCommentItem(c)));
   }
 
+  // Inline reply form to nest reply comments
   function showReplyForm(parentLi, parentId) {
     const existingForm = document.getElementById('inlineReplyForm');
     if (existingForm) existingForm.remove();
@@ -1141,7 +1052,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const form = document.createElement('form');
     form.id = 'inlineReplyForm';
     form.className = 'comment-form';
-    form.style.marginTop = '8px';
+    form.style.marginTop = '6px';
 
     const inputName = document.createElement('input');
     inputName.type = 'text';
@@ -1173,13 +1084,8 @@ window.addEventListener('DOMContentLoaded', () => {
       fetch(`${BACKENDURL}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: nameVal,
-          text: textVal,
-          parentId: parentId
-        }),
-      })
-        .then(res => res.json())
+        body: JSON.stringify({ name: nameVal, text: textVal, parentId: parentId }),
+      }).then(res => res.json())
         .then(data => {
           if (data.success) {
             fetchComments();
@@ -1187,19 +1093,20 @@ window.addEventListener('DOMContentLoaded', () => {
           } else {
             alert('Failed to post reply.');
           }
-        })
-        .catch(() => alert('Network error while posting reply.'));
+        }).catch(() => alert('Network error while posting reply.'));
     });
 
     parentLi.appendChild(form);
     inputName.focus();
   }
 
+  // Comment form event handlers and validations
   function validateCommentForm() {
     commentSubmitBtn.disabled = !(commentNameInput.value.trim() && commentTextArea.value.trim());
   }
-    commentNameInput.addEventListener('input', validateCommentForm);
+  commentNameInput.addEventListener('input', validateCommentForm);
   commentTextArea.addEventListener('input', validateCommentForm);
+
   commentForm.addEventListener('submit', e => {
     e.preventDefault();
     const nameVal = commentNameInput.value.trim();
@@ -1209,8 +1116,7 @@ window.addEventListener('DOMContentLoaded', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nameVal, text: textVal }),
-    })
-      .then(res => res.json())
+    }).then(res => res.json())
       .then(data => {
         if (data.success) {
           commentNameInput.value = '';
@@ -1220,24 +1126,91 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
           alert('Failed to post comment.');
         }
-      })
-      .catch(() => alert('Network error while posting comment.'));
+      }).catch(() => alert('Network error while posting comment.'));
   });
-  
-  // Initial interface setup
 
-  mainApp.style.display = 'none';
-  entryScreen.style.display = 'flex';
+  // Logout button clears session and shows entry screen
+  logoutBtn.addEventListener('click', () => {
+    clearUserSession();
+    userName = null;
+    isAdmin = false;
+    commentNameInput.value = '';
+    commentNameInput.disabled = false;
+    showEntryScreen();
+  });
 
-  uploaderName.addEventListener('blur', () => {
-    if (!isAdmin && uploaderName.value.trim().length > 0) {
-      userName = uploaderName.value.trim();
-      localStorage.setItem('sharelit-username', userName);
-      welcomeMsg.textContent = `Welcome, ${userName}!`;
-      uploaderName.disabled = true;
-      uploadBtn.disabled = !fileInput.files.length;
+  // Entry screen login handling
+
+  userBtn.addEventListener('click', () => {
+    let inputName = prompt('Enter your user name');
+    if (!inputName) return alert('Username required');
+    inputName = inputName.trim();
+    if (!inputName) return alert('Username cannot be empty');
+    userName = inputName;
+    isAdmin = false;
+    saveUserSession(userName, 'user');
+    welcomeMsg.textContent = `Welcome, ${userName}!`;
+    commentNameInput.value = userName;
+    commentNameInput.disabled = true;
+    showMainApp();
+    fetchFiles();
+    fetchComments();
+    setupUploadControls();
+  });
+
+  adminBtn.addEventListener('click', () => {
+    let inputPassword = prompt('Enter admin password');
+    if (inputPassword !== ADMIN_PASSWORD) return alert('Incorrect admin password');
+    userName = 'Admin';
+    isAdmin = true;
+    saveUserSession(userName, 'admin');
+    welcomeMsg.textContent = `Welcome, Admin!`;
+    commentNameInput.value = userName;
+    commentNameInput.disabled = true;
+    showMainApp();
+    fetchFiles();
+    fetchComments();
+    setupUploadControls();
+  });
+
+  // Enable admin login submit via form (optional)
+  adminPasswordInput.addEventListener('input', () => {
+    adminLoginSubmit.disabled = !adminPasswordInput.value.trim();
+  });
+  adminLoginForm.addEventListener('submit', e => {
+    e.preventDefault();
+    if (adminPasswordInput.value.trim() === ADMIN_PASSWORD) {
+      userName = 'Admin';
+      isAdmin = true;
+      saveUserSession(userName, 'admin');
+      welcomeMsg.textContent = `Welcome, Admin!`;
+      commentNameInput.value = userName;
+      commentNameInput.disabled = true;
+      showMainApp();
+      fetchFiles();
+      fetchComments();
+      setupUploadControls();
+    } else {
+      adminLoginError.textContent = 'Incorrect password. Try again.';
     }
   });
+
+  // Initialize app with session if available or show entry screen
+  const session = loadUserSession();
+  if (session.name && session.role) {
+    userName = session.name;
+    isAdmin = session.role === 'admin';
+    welcomeMsg.textContent = `Welcome, ${userName}!`;
+    commentNameInput.value = userName;
+    commentNameInput.disabled = true;
+    showMainApp();
+    fetchFiles();
+    fetchComments();
+    setupUploadControls();
+  } else {
+    showEntryScreen();
+  }
+  });                                 
 });
  </script>
 </body>
