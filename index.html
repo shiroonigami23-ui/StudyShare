@@ -1413,37 +1413,49 @@
     });
 
     function initializeApp() {
-      // Generate or retrieve device ID
-      deviceId = getDeviceId();
-      
-      // Load user votes
-      userVotes = getUserVotes();
-      
-      // Initialize theme
-      currentTheme = localStorage.getItem('sharelit-theme') || 'light';
-      setTheme(currentTheme);
-      
-      // Load saved data
-      loadSavedData();
-      
-      // Check for saved user
-      const savedUserName = localStorage.getItem('sharelit-username');
-      const sessionExpiry = localStorage.getItem('sharelit-session-expiry');
-      
-      if (savedUserName && sessionExpiry && new Date().getTime() < parseInt(sessionExpiry)) {
-        currentUser = { 
-          name: savedUserName, 
-          id: generateId(),
-          isAdmin: checkAdminStatus(savedUserName),
-          isAnonymous: savedUserName.startsWith('Anonymous_')
-        };
-        showMainApp();
-        startSessionTimeout();
-      } else {
-        // Clear expired session
+  // Generate or retrieve device ID
+  deviceId = getDeviceId();
+
+  // Load user votes (optional, for local UI state only)
+  userVotes = getUserVotes();
+
+  // Initialize theme
+  currentTheme = localStorage.getItem('sharelit-theme') || 'light';
+  setTheme(currentTheme);
+
+  // Check for saved user session info in localStorage
+  const savedUserName = localStorage.getItem('sharelit-username');
+  const sessionExpiry = localStorage.getItem('sharelit-session-expiry');
+
+  if (savedUserName && sessionExpiry && new Date().getTime() < parseInt(sessionExpiry)) {
+    // Validate and fetch full user info from backend
+    fetch(`${API_BASE_URL}/user/${savedUserName}`)
+      .then(res => res.json())
+      .then(user => {
+        if (user && user.id) {
+          currentUser = user;
+          showMainApp();
+          startSessionTimeout();
+
+          // Load backend data for UI
+          refreshFiles();
+          refreshComments();
+          updateAdminStats(); // if admin
+          updateUserStats(); // user-specific stats if needed
+
+        } else {
+          clearUserSession();
+          showLoginModal();
+        }
+      })
+      .catch(() => {
         clearUserSession();
         showLoginModal();
-      }
+      });
+  } else {
+    clearUserSession();
+    showLoginModal();
+  }
     }
 
     function setupEventListeners() {
@@ -1657,23 +1669,29 @@
     }
 
     function showMainApp() {
-      document.getElementById('loginModal').classList.add('hidden');
-      document.getElementById('mainApp').classList.remove('hidden');
-      
-      updateUserDisplay();
-      loadUserData();
-      
-      // Show admin features if user is admin
-      if (currentUser?.isAdmin) {
-        document.getElementById('adminBtn').classList.remove('hidden');
-        document.getElementById('userRole').textContent = 'Administrator';
-        // Make avatar admin colored
-        document.querySelectorAll('.user-avatar').forEach(avatar => {
-          avatar.classList.add('admin-avatar');
-        });
-      }
-    }
+  document.getElementById('loginModal').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  
+  updateUserDisplay();
 
+  // Fetch and refresh all backend data for the user
+  refreshFiles();
+  refreshComments();
+  updateUserStats();
+  
+  // Show admin features if user is admin
+  if (currentUser?.isAdmin) {
+    updateAdminStats();
+
+    document.getElementById('adminBtn').classList.remove('hidden');
+    document.getElementById('userRole').textContent = 'Administrator';
+
+    // Make avatar admin colored
+    document.querySelectorAll('.user-avatar').forEach(avatar => {
+      avatar.classList.add('admin-avatar');
+    });
+  }
+}
     function updateUserDisplay() {
       if (!currentUser) return;
       
@@ -1856,7 +1874,7 @@
     }
 
     function createFileCard(file) {
-      const hasVoted = userVotes[file.id] === true;
+      const hasVoted = file.hasUserVoted === true;
       const canDelete = currentUser?.isAdmin || file.uploaderId === currentUser?.id;
       const canManage = currentUser?.isAdmin;
       
@@ -2025,9 +2043,11 @@
     }
 
     function bulkApproveAll() {
-      if (!currentUser?.isAdmin) return;
-      
-      const pendingFiles = files.filter(f => f.status === 'pending');
+  if (!currentUser?.isAdmin) return;
+
+  fetch(`${API_BASE_URL}/files/pending`)
+    .then(res => res.json())
+    .then(pendingFiles => {
       if (pendingFiles.length === 0) {
         showToast('No pending files to approve.', 'info');
         return;
@@ -2036,18 +2056,28 @@
       if (!confirm(`Approve all ${pendingFiles.length} pending files?`)) {
         return;
       }
-      
-      pendingFiles.forEach(file => {
-        file.isApproved = true;
-        file.status = 'approved';
-        file.approvedBy = currentUser.name;
-        file.approvedAt = new Date();
-      });
-      
-      saveData();
-      updateFileDisplay();
-      updateAdminStats();
-      showToast(`${pendingFiles.length} files approved successfully!`, 'success');
+
+      const approvePromises = pendingFiles.map(file =>
+        fetch(`${API_BASE_URL}/admin/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: file.id, adminId: currentUser.id })
+        })
+      );
+
+      Promise.all(approvePromises)
+        .then(() => {
+          showToast(`${pendingFiles.length} files approved successfully!`, 'success');
+          refreshAdminStats();
+          updateAdminFilesList();
+        })
+        .catch(() => {
+          showToast('Error approving files.', 'error');
+        });
+    })
+    .catch(() => {
+      showToast('Error fetching pending files.', 'error');
+    });
     }
 
     function showAdminDashboard() {
@@ -2066,34 +2096,34 @@
     }
 
     function updateAdminStats() {
-      if (!currentUser?.isAdmin) return;
+  if (!currentUser?.isAdmin) return;
+
+  fetch(`${API_BASE_URL}/files/stats`)
+    .then(res => res.json())
+    .then(stats => {
+      document.getElementById('adminTotalFiles').textContent = stats.totalFiles || 0;
+      document.getElementById('adminApprovedFiles').textContent = stats.approvedFiles || 0;
+      document.getElementById('adminPendingFiles').textContent = stats.pendingFiles || 0;
+      document.getElementById('adminRejectedFiles').textContent = stats.rejectedFiles || 0;
+      document.getElementById('adminTotalUpvotes').textContent = stats.totalUpvotes || 0;
       
-      const totalFiles = files.length;
-      const approvedFiles = files.filter(f => f.status === 'approved').length;
-      const pendingFiles = files.filter(f => f.status === 'pending').length;
-      const rejectedFiles = files.filter(f => f.status === 'rejected').length;
-      const totalUpvotes = files.reduce((sum, f) => sum + f.upvotes, 0);
-      
-      document.getElementById('adminTotalFiles').textContent = totalFiles;
-      document.getElementById('adminApprovedFiles').textContent = approvedFiles;
-      document.getElementById('adminPendingFiles').textContent = pendingFiles;
-      document.getElementById('adminRejectedFiles').textContent = rejectedFiles;
-      document.getElementById('adminTotalUpvotes').textContent = totalUpvotes;
-      
-      // Update titles
       document.getElementById('pendingTitle').innerHTML = `
-        Pending Approvals (${pendingFiles})
-        ${pendingFiles > 0 ? '<span class="status-indicator pending"></span>' : ''}
+        Pending Approvals (${stats.pendingFiles || 0})
+        ${(stats.pendingFiles || 0) > 0 ? '<span class="status-indicator pending"></span>' : ''}
       `;
-      document.getElementById('allFilesTitle').textContent = `All Files (${totalFiles})`;
+      document.getElementById('allFilesTitle').textContent = `All Files (${stats.totalFiles || 0})`;
       
       updatePendingFilesList();
+    })
+    .catch(() => {
+      showToast('Failed to load admin stats.', 'error');
+    });
     }
-
     function updatePendingFilesList() {
-      const pendingFiles = files.filter(f => f.status === 'pending');
+  fetch(`${API_BASE_URL}/files/pending`)
+    .then(res => res.json())
+    .then(pendingFiles => {
       const container = document.getElementById('pendingFilesList');
-      
       if (pendingFiles.length === 0) {
         container.innerHTML = `
           <div class="card text-center">
@@ -2107,25 +2137,16 @@
       }
       
       container.innerHTML = pendingFiles.map(file => `
-        <div class="admin-file-item">
-          <div class="admin-file-info">
-            <h4 class="font-semibold">${file.originalName}</h4>
-            <p class="text-sm text-muted-foreground">
-              By: ${file.uploaderName} • ${formatFileSize(file.fileSize)} • ${formatDate(file.createdAt)}
-            </p>
-          </div>
-          <div class="admin-file-actions">
-            <button class="btn btn-success btn-sm" onclick="approveFile('${file.id}')">
-              <i class="fas fa-check mr-1"></i>
-              Approve
-            </button>
-            <button class="btn btn-destructive btn-sm" onclick="rejectFile('${file.id}')">
-              <i class="fas fa-times mr-1"></i>
-              Reject
-            </button>
-          </div>
+        <div class="pending-file-item">
+          <strong>${file.originalName}</strong> by ${file.uploaderName}
+          <button onclick="approveFile('${file.id}')">Approve</button>
+          <button onclick="rejectFile('${file.id}')">Reject</button>
         </div>
       `).join('');
+    })
+    .catch(() => {
+      showToast('Failed to load pending files.', 'error');
+    });
     }
 
     function updateAdminFilesList() {
