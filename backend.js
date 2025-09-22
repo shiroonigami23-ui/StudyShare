@@ -1,43 +1,29 @@
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
-const mariadb = require('mariadb');
+const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- MariaDB database setup ---
-let pool = null;
-let isDB = false;
-
-// Try to create pool, fallback to RAM if failed
-(async () => {
-  try {
-    pool = mariadb.createPool({
-      host: 'localhost',
-      user: 'shareuser',
-      password: 'Shiro',
-      database: 'sharelit'
-    });
-    // Quick test query, will throw if DB down
-    await pool.query('SELECT 1');
-    isDB = true;
-    console.log('MariaDB detected. Using database for storage!');
-  } catch (err) {
-    pool = null;
-    isDB = false;
-    console.log('MariaDB not detected. Using in-memory storage! Error:', err.message);
-  }
-})();
+// --- PostgreSQL pool setup for Aiven ---
+const pool = new Pool({
+  user: 'avnadmin',
+  host: 'pg-1eb9e17f-elegance.f.aivencloud.com',
+  database: 'defaultdb',
+  password: 'AWS_FcMjS8qCRtOi.jNawug', // Be careful about sharing this!
+  port: 25192,
+  ssl: { rejectUnauthorized: false }
+});
 
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage as fallback
+// In-memory storage as fallback (for comments)
 let users = [];
-let files = [];
 let comments = [];
 let votes = {};
 
+// Admin password from frontend (you can keep as-is for non-DB logic)
 const ADMIN_PASSWORD = "Shiro";
 
 const allowedTypes = [
@@ -99,33 +85,22 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ error: 'Uploader info required' });
   }
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      await conn.query(
-        'INSERT INTO files (originalName, mimeType, fileSize, uploaderId, uploaderName, isApproved, upvotes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
-        [req.file.originalname, req.file.mimetype, req.file.size, uploaderId, isAnonymous ? `Anonymous_${genId()}` : uploaderName, false, 0]
-      );
-      conn.release();
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    let f = {
-      id: genId(),
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      fileSize: req.file.size,
-      uploaderId,
-      uploaderName: isAnonymous ? `Anonymous_${genId()}` : uploaderName,
-      isApproved: false,
-      upvotes: 0,
-      buffer: req.file.buffer,
-      createdAt: new Date()
-    };
-    files.push(f);
-    res.json({ success: true, file: f });
+  try {
+    await pool.query(
+      'INSERT INTO files (originalName, mimeType, fileSize, uploaderId, uploaderName, isApproved, upvotes, createdAt) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())',
+      [
+        req.file.originalname,
+        req.file.mimetype,
+        req.file.size,
+        uploaderId,
+        isAnonymous ? `Anonymous_${genId()}` : uploaderName,
+        false,
+        0
+      ]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
@@ -141,20 +116,11 @@ app.post('/admin/approve', async (req, res) => {
     return res.status(403).json({ error: 'Admin only or wrong password' });
   }
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      await conn.query('UPDATE files SET isApproved=1 WHERE id=?', [fileId]);
-      conn.release();
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    let file = files.find(f => f.id === fileId);
-    if (!file) return res.status(404).json({ error: 'File not found' });
-    file.isApproved = true;
-    res.json({ success: true, file });
+  try {
+    await pool.query('UPDATE files SET isApproved=TRUE WHERE id=$1', [fileId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
@@ -165,52 +131,30 @@ app.post('/admin/reject', async (req, res) => {
     return res.status(403).json({ error: 'Admin only or wrong password' });
   }
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      await conn.query('DELETE FROM files WHERE id=?', [fileId]);
-      conn.release();
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    files = files.filter(f => f.id !== fileId);
+  try {
+    await pool.query('DELETE FROM files WHERE id=$1', [fileId]);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
 // --- USER FILE ACTIONS ---
-
-// Download file endpoint, only approved files or admins can download
+// Download file (metadata only - can be upgraded for real file download logic)
 app.get('/download/:fileId/:userId', async (req, res) => {
   const { fileId, userId } = req.params;
   const user = users.find(u => u.id === userId);
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      const filesRes = await conn.query('SELECT * FROM files WHERE id=?', [fileId]);
-      let file = filesRes[0];
-      conn.release();
-      if (!file) return res.status(404).json({ error: 'File not found' });
-      if (!file.isApproved && (!user || !user.isAdmin)) {
-        return res.status(403).json({ error: 'File not approved' });
-      }
-      // Placeholder: actual file content needs to be saved on disk or as BLOB for real download
-      res.json({ success: true, file });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    const file = files.find(f => f.id === fileId);
+  try {
+    const { rows } = await pool.query('SELECT * FROM files WHERE id=$1', [fileId]);
+    let file = rows[0];
     if (!file) return res.status(404).json({ error: 'File not found' });
-    if (!file.isApproved && (!user || !user.isAdmin)) {
+    if (!file.isapproved && (!user || !user.isAdmin)) {
       return res.status(403).json({ error: 'File not approved' });
     }
-    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
-    res.setHeader('Content-Type', file.mimeType);
-    res.send(file.buffer);
+    res.json({ success: true, file });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
@@ -218,46 +162,27 @@ app.get('/download/:fileId/:userId', async (req, res) => {
 app.post('/upvote', async (req, res) => {
   const { fileId, userId } = req.body;
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      await conn.query('UPDATE files SET upvotes = upvotes + 1 WHERE id=?', [fileId]);
-      conn.release();
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    if (!votes[userId]) votes[userId] = {};
-    if (votes[userId][fileId]) return res.status(400).json({ error: 'Already voted' });
-    let file = files.find(f => f.id === fileId && f.isApproved);
-    if (!file) return res.status(404).json({ error: 'File not found or not approved' });
-    file.upvotes++;
-    votes[userId][fileId] = true;
-    res.json({ success: true, upvotes: file.upvotes });
+  try {
+    await pool.query('UPDATE files SET upvotes = upvotes + 1 WHERE id=$1', [fileId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
 // Get all files, admins get all, users get only approved
 app.get('/files/:userId', async (req, res) => {
   const user = users.find(u => u.id === req.params.userId);
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      let filesRows;
-      if (user && user.isAdmin) {
-        filesRows = await conn.query('SELECT * FROM files');
-      } else {
-        filesRows = await conn.query('SELECT * FROM files WHERE isApproved=1');
-      }
-      conn.release();
-      res.json(filesRows);
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
+  try {
+    let result;
+    if (user && user.isAdmin) {
+      result = await pool.query('SELECT * FROM files');
+    } else {
+      result = await pool.query('SELECT * FROM files WHERE isApproved=TRUE');
     }
-  } else {
-    let result = user && user.isAdmin ? files : files.filter(f => f.isApproved);
-    res.json(result);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
@@ -267,25 +192,19 @@ app.post('/comment', async (req, res) => {
   const { text, authorName, authorId } = req.body;
   if (!text || !authorName) return res.status(400).json({ error: 'Comment or name required' });
 
-  if (isDB) {
-    // (You need to create and use a "comments" table in MariaDB for persistence)
-    res.json({ success: true }); // Placeholder
-  } else {
-    let comment = {
-      id: genId(),
-      text,
-      authorName,
-      authorId: authorId || null,
-      createdAt: new Date()
-    };
-    comments.push(comment);
-    res.json({ success: true, comment });
-  }
+  let comment = {
+    id: genId(),
+    text,
+    authorName,
+    authorId: authorId || null,
+    createdAt: new Date()
+  };
+  comments.push(comment);
+  res.json({ success: true, comment });
 });
 
-// Get all comments endpoint
+// Get all comments endpoint (in-memory for demo)
 app.get('/comments', (req, res) => {
-  // DB version omitted; add if you create a comments table in MariaDB
   res.json(comments);
 });
 
@@ -296,33 +215,19 @@ app.get('/admin/stats/:adminId/:adminPassword', async (req, res) => {
     return res.status(403).json({ error: 'Admin only or wrong password' });
   }
 
-  if (isDB) {
-    try {
-      const conn = await pool.getConnection();
-      const totalFiles = await conn.query('SELECT COUNT(*) as count FROM files');
-      const approved = await conn.query('SELECT COUNT(*) as count FROM files WHERE isApproved=1');
-      const pending = await conn.query('SELECT COUNT(*) as count FROM files WHERE isApproved=0');
-      const upvotes = await conn.query('SELECT SUM(upvotes) as sum FROM files');
-      conn.release();
-      res.json({
-        totalFiles: totalFiles[0].count,
-        approved: approved[0].count,
-        pending: pending[0].count,
-        totalUpvotes: upvotes[0].sum || 0
-      });
-    } catch (err) {
-      res.status(500).json({ error: 'DB error', details: err.toString() });
-    }
-  } else {
-    let approved = files.filter(f => f.isApproved);
-    let pending = files.filter(f => !f.isApproved);
-    let totalUpvotes = files.reduce((total, f) => total + f.upvotes, 0);
+  try {
+    const totalFilesRes = await pool.query('SELECT COUNT(*) as count FROM files');
+    const approvedRes = await pool.query('SELECT COUNT(*) as count FROM files WHERE isApproved=TRUE');
+    const pendingRes = await pool.query('SELECT COUNT(*) as count FROM files WHERE isApproved=FALSE');
+    const upvotesRes = await pool.query('SELECT SUM(upvotes) as sum FROM files');
     res.json({
-      totalFiles: files.length,
-      approved: approved.length,
-      pending: pending.length,
-      totalUpvotes
+      totalFiles: totalFilesRes.rows[0].count,
+      approved: approvedRes.rows[0].count,
+      pending: pendingRes.rows[0].count,
+      totalUpvotes: upvotesRes.rows[0].sum || 0
     });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.toString() });
   }
 });
 
