@@ -1442,13 +1442,14 @@
       showToast('File selected successfully!', 'success');
     }
 
-   function handleUpload() {
+function handleUpload() {
   const fileInput = document.getElementById('fileInput');
-  const uploaderName = document.getElementById('uploaderName').value.trim();
+  const uploaderNameInput = document.getElementById('uploaderName');
   const isAnonymous = document.getElementById('anonymousUpload').checked;
+  const uploaderName = uploaderNameInput.value.trim();
 
   if (!fileInput.files[0]) {
-    showToast('Please select a file.', 'error');
+    showToast('Please select a file to upload.', 'error');
     return;
   }
 
@@ -1457,24 +1458,58 @@
     return;
   }
 
+  const finalUploaderName = isAnonymous ? `Anonymous_${Math.random().toString(36).substr(2, 5)}` : uploaderName;
+
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
   formData.append('uploaderId', currentUser.id);
-  formData.append('uploaderName', isAnonymous ? `Anonymous_${Math.random().toString(36).substr(2, 5)}` : uploaderName);
+  formData.append('uploaderName', finalUploaderName);
   formData.append('isAnonymous', isAnonymous);
 
-  fetch('http://localhost:3000/upload', {
-    method: 'POST',
-    body: formData,
-  })
-    .then(r => r.json())
-    .then(data => {
-      showToast('File uploaded!', 'success');
-      // Refresh file list here, e.g., call loadFiles()
-    })
-    .catch(() => showToast('Upload failed.', 'error'));
-   }
-      
+  // Show progress container and disable button during upload
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  progressContainer.classList.remove('hidden');
+  document.getElementById('uploadBtn').disabled = true;
+  progressBar.style.width = '0%';
+  progressText.textContent = 'Uploading... 0%';
+
+  // Use XMLHttpRequest for real upload progress event
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', 'http://localhost:3000/upload');
+
+  xhr.upload.onprogress = (event) => {
+    if (event.lengthComputable) {
+      const percent = Math.round((event.loaded / event.total) * 100);
+      progressBar.style.width = percent + '%';
+      progressText.textContent = `Uploading... ${percent}%`;
+    }
+  };
+
+  xhr.onload = () => {
+    progressContainer.classList.add('hidden');
+    document.getElementById('uploadBtn').disabled = false;
+    if (xhr.status >= 200 && xhr.status < 300) {
+      showToast('File uploaded! It is pending approval.', 'success');
+      // Reset file input and name
+      fileInput.value = '';
+      uploaderNameInput.value = finalUploaderName;
+      // Refresh file list call here if needed, e.g., loadFiles()
+    } else {
+      showToast('Upload failed.', 'error');
+    }
+  };
+
+  xhr.onerror = () => {
+    progressContainer.classList.add('hidden');
+    document.getElementById('uploadBtn').disabled = false;
+    showToast('Upload failed.', 'error');
+  };
+
+  xhr.send(formData);
+}
       if (!isAnonymous && !uploaderName) {
         showToast('Please enter your name or check anonymous upload.', 'error');
         return;
