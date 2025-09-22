@@ -6,19 +6,23 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware
-app.use(cors()); // Consider cors({ origin: frontendUrl, credentials: true }) for production
+const FRONTEND_URL = 'https://sharelit-1.onrender.com'; // your deployed frontend URL
+
+// Middleware with CORS allowing your frontend domain
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+}));
 app.use(express.json());
 
-// Simple in-memory store (replace with DB in prod)
-const users = new Map(); // key: userId, value: user object
-const files = new Map(); // key: fileId, value: file object
+const users = new Map(); // userId -> user object
+const files = new Map(); // fileId -> file object
 const comments = [];
-const sessions = new Map(); // token => user object
+const sessions = new Map(); // token -> user
 
 const ADMIN_PASSWORD = 'Shiro';
 
-const allowedTypes = [
+const allowedFileTypes = [
   'application/pdf',
   'application/epub+zip',
   'audio/mpeg',
@@ -26,6 +30,7 @@ const allowedTypes = [
   'image/jpg',
   'image/png',
 ];
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const storage = multer.memoryStorage();
@@ -33,19 +38,17 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
-    cb(null, allowedTypes.includes(file.mimetype));
+    cb(null, allowedFileTypes.includes(file.mimetype));
   },
 });
 
 function genId() {
   return crypto.randomBytes(8).toString('hex');
 }
-
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-// Middleware for session token auth
 function authenticate(req, res, next) {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -55,7 +58,6 @@ function authenticate(req, res, next) {
   next();
 }
 
-// Middleware for admin-only routes
 function requireAdmin(req, res, next) {
   if (!req.user || !req.user.isAdmin) {
     return res.status(403).json({ error: 'Admin only' });
@@ -63,18 +65,18 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Public routes
-
+// Login endpoint
 app.post('/login', (req, res) => {
   const { name, password, isAnonymous } = req.body;
   if (isAnonymous) {
     const id = genId();
-    const user = { id, name: `Anonymous_${id.slice(0,5)}`, isAdmin: false, isAnonymous: true };
+    const user = { id, name: `Anonymous_${id.slice(0, 5)}`, isAdmin: false, isAnonymous: true };
     users.set(id, user);
     const token = genToken();
     sessions.set(token, user);
     return res.json({ ...user, token });
   }
+
   if (!name) return res.status(400).json({ error: 'Name required' });
 
   const isAdmin = name.toLowerCase() === 'admin' && password === ADMIN_PASSWORD;
@@ -85,28 +87,26 @@ app.post('/login', (req, res) => {
   const id = genId();
   const user = { id, name, isAdmin, isAnonymous: false };
   users.set(id, user);
-
   const token = genToken();
   sessions.set(token, user);
 
   return res.json({ ...user, token });
 });
 
+// File upload
 app.post('/upload', authenticate, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  // Validate user info from token auth
   const uploader = req.user;
   if (!uploader) return res.status(401).json({ error: 'Invalid user' });
 
-  // Save file to DB or storage (placeholder)
   const fileId = genId();
   const file = {
     id: fileId,
     originalName: req.file.originalname,
     uploaderId: uploader.id,
     uploaderName: uploader.name,
-    isApproved: uploader.isAdmin, // auto-approve admin uploads
+    isApproved: uploader.isAdmin,
     status: uploader.isAdmin ? 'approved' : 'pending',
     mimeType: req.file.mimetype,
     fileSize: req.file.size,
@@ -115,9 +115,10 @@ app.post('/upload', authenticate, upload.single('file'), (req, res) => {
   };
   files.set(fileId, file);
 
-  return res.json({ success: true, fileId });
+  res.json({ success: true, fileId });
 });
 
+// Comment submission
 app.post('/comment', authenticate, (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: 'Comment text required' });
@@ -130,11 +131,10 @@ app.post('/comment', authenticate, (req, res) => {
     createdAt: new Date(),
   };
   comments.push(comment);
-  return res.json({ success: true, comment });
+  res.json({ success: true, comment });
 });
 
-// Admin action routes
-
+// Admin approve file
 app.post('/admin/approve', authenticate, requireAdmin, (req, res) => {
   const { fileId } = req.body;
   const file = files.get(fileId);
@@ -146,11 +146,12 @@ app.post('/admin/approve', authenticate, requireAdmin, (req, res) => {
   file.approvedBy = req.user.name;
   file.approvedAt = new Date();
 
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
+// Admin reject file
 app.post('/admin/reject', authenticate, requireAdmin, (req, res) => {
-  const { fileId } = req.body;
+  const { fileId, reason } = req.body;
   const file = files.get(fileId);
   if (!file) return res.status(404).json({ error: 'File not found' });
   if (file.status === 'rejected') return res.status(400).json({ error: 'File already rejected' });
@@ -158,47 +159,48 @@ app.post('/admin/reject', authenticate, requireAdmin, (req, res) => {
   file.status = 'rejected';
   file.rejectedBy = req.user.name;
   file.rejectedAt = new Date();
-  file.rejectedReason = req.body.reason || 'No reason specified';
+  file.rejectedReason = reason || 'No reason specified';
 
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
+// Admin delete file
 app.post('/admin/delete', authenticate, requireAdmin, (req, res) => {
   const { fileId } = req.body;
   if (!files.has(fileId)) return res.status(404).json({ error: 'File not found' });
 
   files.delete(fileId);
-
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
-// User API routes
-
+// User files list
 app.get('/files/:userId', (req, res) => {
   const user = users.get(req.params.userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const isAdmin = user.isAdmin;
   let resultFiles = Array.from(files.values());
-  if (!isAdmin) {
-    resultFiles = resultFiles.filter((f) => f.isApproved && f.status === 'approved');
-  }
-  return res.json(resultFiles);
+  if (!isAdmin) resultFiles = resultFiles.filter((f) => f.isApproved);
+
+  res.json(resultFiles);
 });
 
+// Get all comments
 app.get('/comments', (req, res) => {
-  return res.json(comments);
+  res.json(comments);
 });
 
+// Upvote file
 app.post('/upvote', authenticate, (req, res) => {
   const { fileId } = req.body;
   const file = files.get(fileId);
   if (!file) return res.status(404).json({ error: 'File not found' });
 
   file.upvotes = (file.upvotes || 0) + 1;
-  return res.json({ success: true, upvotes: file.upvotes });
+  res.json({ success: true, upvotes: file.upvotes });
 });
 
+// Download file (mocked)
 app.get('/download/:fileId/:userId', (req, res) => {
   const { fileId, userId } = req.params;
   const user = users.get(userId);
@@ -206,12 +208,9 @@ app.get('/download/:fileId/:userId', (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (!file || !file.isApproved) return res.status(404).json({ error: 'File not found or not approved' });
 
-  // Send file download (simulation)
   res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
   res.setHeader('Content-Type', file.mimeType);
-  return res.send(file.buffer || Buffer.from('Dummy file content'));
+  res.send(file.buffer || Buffer.from('Dummy file content'));
 });
 
-app.listen(PORT, () => {
-  console.log(`ShareLit backend running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`ShareLit backend running on port ${PORT}`));
