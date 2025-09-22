@@ -1442,15 +1442,38 @@
       showToast('File selected successfully!', 'success');
     }
 
-    function handleUpload() {
-      const fileInput = document.getElementById('fileInput');
-      const uploaderName = document.getElementById('uploaderName').value.trim();
-      const isAnonymous = document.getElementById('anonymousUpload').checked;
-      
-      if (!fileInput.files[0]) {
-        showToast('Please select a file to upload.', 'error');
-        return;
-      }
+   function handleUpload() {
+  const fileInput = document.getElementById('fileInput');
+  const uploaderName = document.getElementById('uploaderName').value.trim();
+  const isAnonymous = document.getElementById('anonymousUpload').checked;
+
+  if (!fileInput.files[0]) {
+    showToast('Please select a file.', 'error');
+    return;
+  }
+
+  if (!isAnonymous && !uploaderName) {
+    showToast('Please enter your name or check anonymous upload.', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('uploaderId', currentUser.id);
+  formData.append('uploaderName', isAnonymous ? `Anonymous_${Math.random().toString(36).substr(2, 5)}` : uploaderName);
+  formData.append('isAnonymous', isAnonymous);
+
+  fetch('http://localhost:3000/upload', {
+    method: 'POST',
+    body: formData,
+  })
+    .then(r => r.json())
+    .then(data => {
+      showToast('File uploaded!', 'success');
+      // Refresh file list here, e.g., call loadFiles()
+    })
+    .catch(() => showToast('Upload failed.', 'error'));
+   }
       
       if (!isAnonymous && !uploaderName) {
         showToast('Please enter your name or check anonymous upload.', 'error');
