@@ -25,7 +25,7 @@ let isDB = false;
   } catch (err) {
     pool = null;
     isDB = false;
-    console.log('MariaDB not detected. Using in-memory storage!');
+    console.log('MariaDB not detected. Using in-memory storage! Error:', err.message);
   }
 })();
 
