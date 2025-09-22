@@ -1403,6 +1403,7 @@
       ALLOWED_TYPES: ['application/pdf', 'application/epub+zip', 'audio/mpeg', 'image/jpeg', 'image/jpg', 'image/png'],
       AUTO_SAVE_INTERVAL: 30000 // 30 seconds
     };
+    const API_BASE_URL = 'https://sharelit-1.onrender.com'; // your backend URL on Render
 
     // Initialize Application
     document.addEventListener('DOMContentLoaded', function() {
@@ -1520,56 +1521,59 @@
 
     // Enhanced Authentication
     function handleLogin(e) {
-      e.preventDefault();
-      
-      const userName = document.getElementById('userName').value.trim();
-      const isAnonymous = document.getElementById('isAnonymous').checked;
-      
-      if (!userName && !isAnonymous) {
-        showToast('Please enter your name or select anonymous browsing.', 'error');
-        return;
-      }
-      
-      const finalName = isAnonymous 
-        ? `Anonymous_${Math.random().toString(36).substr(2, 5)}` 
-        : userName;
-      
-      currentUser = {
-        id: generateId(),
-        name: finalName,
-        isAnonymous,
-        isAdmin: false
-      };
-      
-      saveUserSession(finalName);
-      showToast(`Welcome ${finalName}!`, 'success');
-      showMainApp();
-      startSessionTimeout();
+  e.preventDefault();
+
+  const userName = document.getElementById('userName').value.trim();
+  const isAnonymous = document.getElementById('isAnonymous').checked;
+
+  if (!userName && !isAnonymous) {
+    showToast('Please enter your name or select anonymous browsing.', 'error');
+    return;
+  }
+
+  const finalName = isAnonymous 
+    ? `Anonymous_${Math.random().toString(36).substr(2, 5)}`
+    : userName;
+
+  fetch(`${API_BASE_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: finalName, isAnonymous })
+  })
+  .then(response => response.json())
+  .then(data => {
+    currentUser = data; // assign backend user object
+    saveUserSession(data.name);
+    showToast(`Welcome ${data.name}!`, 'success');
+    showMainApp();
+    startSessionTimeout();
+  });
     }
 
     function handleAdminLogin() {
-      const password = document.getElementById('adminPassword').value;
-      
-      if (password !== CONFIG.ADMIN_PASSWORD) {
-        showToast('Invalid admin password!', 'error');
-        document.getElementById('adminPassword').classList.add('shake');
-        setTimeout(() => {
-          document.getElementById('adminPassword').classList.remove('shake');
-        }, 500);
-        return;
-      }
-      
-      currentUser = {
-        id: generateId(),
-        name: 'Admin',
-        isAnonymous: false,
-        isAdmin: true
-      };
-      
-      saveUserSession('Admin');
-      showToast('Welcome Administrator! You have full access to all features.', 'success');
-      showMainApp();
-      startSessionTimeout();
+  const password = document.getElementById('adminPassword').value;
+
+  fetch(`${API_BASE_URL}/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if(!data.success) {
+      showToast('Invalid admin password!', 'error');
+      document.getElementById('adminPassword').classList.add('shake');
+      setTimeout(() => {
+        document.getElementById('adminPassword').classList.remove('shake');
+      }, 500);
+      return;
+    }
+    currentUser = data.user;
+    saveUserSession('Admin');
+    showToast('Welcome Administrator! You have full access to all features.', 'success');
+    showMainApp();
+    startSessionTimeout();
+  });
     }
 
     function checkAdminStatus(userName) {
@@ -1730,102 +1734,90 @@
       document.getElementById('uploadBtn').disabled = false;
       showToast('File selected successfully!', 'success');
     }
-
     function handleUpload() {
-      const fileInput = document.getElementById('fileInput');
-      const uploaderName = document.getElementById('uploaderName').value.trim();
-      const isAnonymous = document.getElementById('anonymousUpload').checked;
-      
-      if (!fileInput.files[0]) {
-        showToast('Please select a file to upload.', 'error');
-        return;
-      }
-      
-      if (!isAnonymous && !uploaderName) {
-        showToast('Please enter your name or check anonymous upload.', 'error');
-        return;
-      }
-      
-      const finalUploaderName = isAnonymous 
-        ? `Anonymous_${Math.random().toString(36).substr(2, 5)}`
-        : uploaderName;
-      
-      // Enhanced upload with progress simulation
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('progressBar');
-      const progressText = document.getElementById('progressText');
-      
-      progressContainer.classList.remove('hidden');
-      document.getElementById('uploadBtn').disabled = true;
-      
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 10 + 5;
-        if (progress > 100) progress = 100;
-        
-        progressBar.style.width = progress + '%';
-        progressText.textContent = `Uploading... ${Math.round(progress)}%`;
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          
-          // Create file object with enhanced properties
-          const file = {
-            id: generateId(),
-            originalName: fileInput.files[0].name,
-            fileName: fileInput.files[0].name,
-            fileSize: fileInput.files[0].size,
-            mimeType: fileInput.files[0].type,
-            uploaderId: currentUser.id,
-            uploaderName: finalUploaderName,
-            isApproved: currentUser?.isAdmin ? true : false, // AUTO-APPROVE for admins
-            upvotes: 0,
-            createdAt: new Date(),
-            status: currentUser?.isAdmin ? 'approved' : 'pending',
-            rejectedReason: null,
-            approvedBy: currentUser?.isAdmin ? currentUser.name : null,
-            approvedAt: currentUser?.isAdmin ? new Date() : null
-          };
-          
-          files.push(file);
-          saveData();
-          
-          // Reset form
-          fileInput.value = '';
-          document.getElementById('dropText').textContent = 'Drop your file here';
-          document.getElementById('uploadBtn').disabled = true;
-          progressContainer.classList.add('hidden');
-          progressBar.style.width = '0%';
-          
-          const successMessage = currentUser?.isAdmin 
-            ? 'File uploaded and automatically approved!' 
-            : 'File uploaded successfully! It is pending approval.';
-          
-          showToast(successMessage, 'success');
-          updateFileDisplay();
-          updateUserStats();
-          updateAdminStats();
+  const fileInput = document.getElementById('fileInput');
+  const uploaderName = document.getElementById('uploaderName').value.trim();
+  const isAnonymous = document.getElementById('anonymousUpload').checked;
+
+  if (!fileInput.files[0]) {
+    showToast('Please select a file to upload.', 'error');
+    return;
+  }
+
+  if (!isAnonymous && !uploaderName) {
+    showToast('Please enter your name or check anonymous upload.', 'error');
+    return;
+  }
+
+  const finalUploaderName = isAnonymous 
+    ? `Anonymous_${Math.random().toString(36).substr(2, 5)}`
+    : uploaderName;
+
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  progressContainer.classList.remove('hidden');
+  document.getElementById('uploadBtn').disabled = true;
+
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 10 + 5;
+    if (progress > 100) progress = 100;
+
+    progressBar.style.width = progress + '%';
+    progressText.textContent = `Uploading... ${Math.round(progress)}%`;
+
+    if (progress >= 100) {
+      clearInterval(interval);
+
+      // Backend upload via fetch, not local file creation/push
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('uploaderId', currentUser.id);
+      formData.append('uploaderName', finalUploaderName);
+      formData.append('isAnonymous', isAnonymous);
+
+      fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showToast('File uploaded and pending approval!', 'success');
+          // Optionally refresh file list here, e.g., refreshFiles(currentUser.id)
+        } else {
+          showToast(data.error || 'Upload failed', 'error');
         }
-      }, 150);
+      })
+      .catch(() => showToast('Upload failed (network/server error)', 'error'));
+
+      // Reset form after request
+      fileInput.value = '';
+      document.getElementById('dropText').textContent = 'Drop your file here';
+      document.getElementById('uploadBtn').disabled = true;
+      progressContainer.classList.add('hidden');
+      progressBar.style.width = '0%';
     }
+  }, 150);
+    }
+    
 
     // Enhanced File Management
-    function updateFileDisplay() {
-      const fileGrid = document.getElementById('fileGrid');
-      const sortBy = document.getElementById('sortSelect').value;
-      
-      // Filter files based on user type and sort option
+    function refreshFiles() {
+  const fileGrid = document.getElementById('fileGrid');
+  const sortBy = document.getElementById('sortSelect').value;
+
+  fetch(`${API_BASE_URL}/files/${currentUser.id}`)
+    .then(response => response.json())
+    .then(files => {
       let displayFiles = files;
-      
       if (!currentUser?.isAdmin) {
-        // Regular users only see approved files
         displayFiles = files.filter(f => f.isApproved && f.status === 'approved');
       } else if (sortBy === 'approved') {
-        // Admin viewing approved only
         displayFiles = files.filter(f => f.isApproved && f.status === 'approved');
       }
-      
-      // Sort files
+
       const sortedFiles = [...displayFiles].sort((a, b) => {
         switch (sortBy) {
           case 'popular':
@@ -1838,9 +1830,9 @@
             return new Date(b.createdAt) - new Date(a.createdAt);
         }
       });
-      
+
       document.getElementById('filesTitle').textContent = `Shared Files (${displayFiles.length})`;
-      
+
       if (sortedFiles.length === 0) {
         fileGrid.innerHTML = `
           <div class="card text-center">
@@ -1855,8 +1847,12 @@
         `;
         return;
       }
-      
+
       fileGrid.innerHTML = sortedFiles.map(file => createFileCard(file)).join('');
+    })
+    .catch(() => {
+      fileGrid.innerHTML = `<div class="text-error">Error loading files from server.</div>`;
+    });
     }
 
     function createFileCard(file) {
@@ -1950,55 +1946,82 @@
 
     // Enhanced Admin Functions
     function approveFile(fileId) {
-      const file = files.find(f => f.id === fileId);
-      if (file && currentUser?.isAdmin) {
-        file.isApproved = true;
-        file.status = 'approved';
-        file.approvedBy = currentUser.name;
-        file.approvedAt = new Date();
-        file.rejectedReason = null;
-        
-        saveData();
-        updateFileDisplay();
-        updateAdminStats();
-        showToast(`File "${file.originalName}" approved successfully!`, 'success');
+  if (currentUser?.isAdmin) {
+    fetch(`${API_BASE_URL}/admin/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId,
+        adminId: currentUser.id,
+        adminName: currentUser.name
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showToast(`File approved successfully!`, 'success');
+        refreshFiles(); // Reload files from backend after approve
+        updateAdminStats(); // If you want to show latest stats
+      } else {
+        showToast(data.error || 'Approval failed', 'error');
       }
+    })
+    .catch(() => showToast('Server error during approval.', 'error'));
+  }
     }
 
     function rejectFile(fileId) {
-      const reason = prompt('Enter rejection reason (optional):') || 'No reason provided';
-      
-      const file = files.find(f => f.id === fileId);
-      if (file && currentUser?.isAdmin) {
-        file.isApproved = false;
-        file.status = 'rejected';
-        file.rejectedReason = reason;
-        file.approvedBy = null;
-        file.approvedAt = null;
-        
-        saveData();
-        updateFileDisplay();
+  if (currentUser?.isAdmin) {
+    const reason = prompt('Enter rejection reason (optional):') || 'No reason provided';
+    fetch(`${API_BASE_URL}/admin/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId,
+        reason,
+        adminId: currentUser.id,
+        adminName: currentUser.name
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showToast(`File rejected.`, 'warning');
+        refreshFiles();
         updateAdminStats();
-        showToast(`File "${file.originalName}" rejected.`, 'warning');
+      } else {
+        showToast(data.error || 'Rejection failed', 'error');
       }
+    })
+    .catch(() => showToast('Server error during rejection.', 'error'));
+  }
     }
 
     function deleteFile(fileId) {
-      if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-        return;
-      }
-      
-      const fileIndex = files.findIndex(f => f.id === fileId);
-      if (fileIndex !== -1) {
-        const fileName = files[fileIndex].originalName;
-        files.splice(fileIndex, 1);
-        
-        saveData();
-        updateFileDisplay();
-        updateUserStats();
-        updateAdminStats();
-        showToast(`File "${fileName}" deleted successfully.`, 'info');
-      }
+  if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+    return;
+  }
+  fetch(`${API_BASE_URL}/admin/delete`, { // Or /files/delete if that's your endpoint
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileId,
+      userId: currentUser.id,
+      isAdmin: currentUser.isAdmin
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast(`File deleted successfully.`, 'info');
+      refreshFiles();
+      updateUserStats();
+      updateAdminStats();
+    } else {
+      showToast(data.error || 'Delete failed', 'error');
+    }
+  })
+  .catch(() => showToast('Server error during delete.', 'error'));
     }
 
     function bulkApproveAll() {
@@ -2106,19 +2129,22 @@
     }
 
     function updateAdminFilesList() {
-      const container = document.getElementById('allFilesList');
-      const filter = document.getElementById('adminFilterSelect')?.value || 'all';
-      
+  const container = document.getElementById('allFilesList');
+  const filter = document.getElementById('adminFilterSelect')?.value || 'all';
+
+  fetch(`${API_BASE_URL}/files/${currentUser.id}`)
+    .then(response => response.json())
+    .then(files => {
       let filteredFiles = files;
       if (filter !== 'all') {
         filteredFiles = files.filter(f => f.status === filter);
       }
-      
+
       if (filteredFiles.length === 0) {
         container.innerHTML = '<p class="text-muted-foreground text-center">No files found.</p>';
         return;
       }
-      
+
       container.innerHTML = filteredFiles.map(file => `
         <div class="admin-file-item">
           <div class="admin-file-info">
@@ -2144,6 +2170,10 @@
           </div>
         </div>
       `).join('');
+    })
+    .catch(() => {
+      container.innerHTML = '<p class="text-error text-center">Server error loading files.</p>';
+    });
     }
 
     function filterAdminFiles() {
@@ -2157,56 +2187,85 @@
     }
 
     function exportData() {
-      const data = {
-        files: files,
-        comments: comments,
-        exportDate: new Date().toISOString(),
-        exportedBy: currentUser.name
-      };
-      
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sharelit-export-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      showToast('Data exported successfully!', 'success');
-    }
+  Promise.all([
+    fetch(`${API_BASE_URL}/files/${currentUser.id}`).then(res => res.json()),
+    fetch(`${API_BASE_URL}/comments`).then(res => res.json())
+  ])
+  .then(([files, comments]) => {
+    const data = {
+      files,
+      comments,
+      exportDate: new Date().toISOString(),
+      exportedBy: currentUser.name
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sharelit-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Data exported successfully!', 'success');
+  })
+  .catch(() => showToast('Failed to export data.', 'error'));
+}
 
     // Enhanced Utility Functions
     function toggleUpvote(fileId) {
-      const file = files.find(f => f.id === fileId);
-      if (!file) return;
-      
-      if (userVotes[fileId]) {
-        // Remove upvote
-        file.upvotes = Math.max(0, file.upvotes - 1);
-        delete userVotes[fileId];
-      } else {
-        // Add upvote
-        file.upvotes++;
-        userVotes[fileId] = true;
-      }
-      
-      saveUserVotes();
-      saveData();
-      updateFileDisplay();
+  if (!currentUser) {
+    showToast('Login required to upvote.', 'error');
+    return;
+  }
+
+  fetch(`${API_BASE_URL}/upvote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileId: fileId,
+      userId: currentUser.id
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Upvote processed!', 'success');
+      refreshFiles(); // Update file list from backend
+    } else {
+      showToast(data.error || 'Upvote failed.', 'error');
     }
+  })
+  .catch(() => showToast('Network/server error during upvote.', 'error'));
+}
 
     function downloadFile(fileId) {
+  // Always fetch latest file data from backend!
+  fetch(`${API_BASE_URL}/files/${currentUser.id}`)
+    .then(response => response.json())
+    .then(files => {
       const file = files.find(f => f.id === fileId);
       if (file && file.isApproved) {
-        // Simulate download
+        // Actually trigger file download by navigating/downloading the file URL
+        window.open(file.downloadUrl, '_blank'); // or use anchor if you need
         showToast(`Downloading ${file.originalName}...`, 'info');
+      } else {
+        showToast('File not approved for download.', 'error');
       }
+    })
+    .catch(() => showToast('File not found or server error.', 'error'));
     }
 
     function showFileDetails(fileId) {
+  fetch(`${API_BASE_URL}/files/${currentUser.id}`)
+    .then(response => response.json())
+    .then(files => {
       const file = files.find(f => f.id === fileId);
-      if (!file) return;
-      
+      if (!file) {
+        showToast('File details not found.', 'error');
+        return;
+      }
+
       const details = `
 File Details:
 Name: ${file.originalName}
@@ -2219,44 +2278,57 @@ Upvotes: ${file.upvotes}
 ${file.approvedBy ? `Approved by: ${file.approvedBy} on ${formatDate(file.approvedAt)}` : ''}
 ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
       `;
-      
       alert(details);
+    })
+    .catch(() => showToast('Unable to load file details.', 'error'));
     }
-
     // Enhanced Comments System
     function handleCommentSubmit(e) {
-      e.preventDefault();
-      
-      const authorName = document.getElementById('commentAuthor').value.trim();
-      const commentText = document.getElementById('commentText').value.trim();
-      
-      if (!authorName || !commentText) {
-        showToast('Please enter both your name and comment.', 'error');
-        return;
-      }
-      
-      const comment = {
-        id: generateId(),
-        author: authorName,
-        text: commentText,
-        createdAt: new Date(),
-        userId: currentUser?.id || 'anonymous'
-      };
-      
-      comments.push(comment);
-      saveData();
-      updateCommentsDisplay();
-      
-      // Reset form
-      document.getElementById('commentText').value = '';
-      
+  e.preventDefault();
+
+  const authorName = document.getElementById('commentAuthor').value.trim();
+  const commentText = document.getElementById('commentText').value.trim();
+
+  if (!authorName || !commentText) {
+    showToast('Please enter both your name and comment.', 'error');
+    return;
+  }
+
+  const comment = {
+    author: authorName,
+    text: commentText,
+    createdAt: new Date(),
+    userId: currentUser?.id || 'anonymous'
+  };
+
+  fetch(`${API_BASE_URL}/comment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(comment)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
       showToast('Comment posted successfully!', 'success');
+      // Optionally reload comments from backend here
+      refreshComments();
+    } else {
+      showToast(data.error || 'Failed to post comment', 'error');
+    }
+  })
+  .catch(() => showToast('Network/server error posting comment', 'error'));
+
+  // Reset form
+  document.getElementById('commentText').value = '';
     }
 
-    function updateCommentsDisplay() {
+  function refreshComments() {
+  fetch(`${API_BASE_URL}/comments`)
+    .then(response => response.json())
+    .then(comments => {
       const commentsList = document.getElementById('commentsList');
       document.getElementById('commentsTitle').textContent = `Community Discussion (${comments.length})`;
-      
+
       if (comments.length === 0) {
         commentsList.innerHTML = `
           <div class="text-center py-8">
@@ -2269,9 +2341,9 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
         `;
         return;
       }
-      
+
       const sortedComments = [...comments].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
+
       commentsList.innerHTML = sortedComments.map(comment => `
         <div class="comment">
           <div class="comment-avatar">
@@ -2286,7 +2358,11 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
           </div>
         </div>
       `).join('');
-    }
+    })
+    .catch(() => {
+      commentsList.innerHTML = `<div class="text-error">Error loading comments from server.</div>`;
+    });
+  }
 
     // Enhanced Data Management
     function loadUserData() {
@@ -2505,30 +2581,34 @@ Join date: ${localStorage.getItem('sharelit-session-expiry') ? formatDate(new Da
     }
 
     function exportUserData() {
-      if (!currentUser) return;
-      
-      const userFiles = files.filter(f => f.uploaderId === currentUser.id);
-      const userComments = comments.filter(c => c.userId === currentUser.id);
-      
-      const userData = {
-        user: currentUser,
-        files: userFiles,
-        comments: userComments,
-        votes: userVotes,
-        exportDate: new Date().toISOString()
-      };
-      
-      const blob = new Blob([JSON.stringify(userData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sharelit-user-data-${currentUser.name}-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      showToast('Your data exported successfully!', 'success');
-    }
+  if (!currentUser) return;
 
+  // Fetch files and comments from the backend first!
+  Promise.all([
+    fetch(`${API_BASE_URL}/files/${currentUser.id}`).then(res => res.json()),
+    fetch(`${API_BASE_URL}/comments?userId=${currentUser.id}`).then(res => res.json())
+  ])
+  .then(([userFiles, userComments]) => {
+    const userData = {
+      user: currentUser,
+      files: userFiles,
+      comments: userComments,
+      votes: userVotes, // still from local if needed
+      exportDate: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(userData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sharelit-user-data-${currentUser.name}-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Your data exported successfully!', 'success');
+  })
+  .catch(() => showToast('Failed to export user data.', 'error'));
+    }
     // Initialize tooltips and accessibility features
     function initAccessibility() {
       // Add keyboard navigation support
