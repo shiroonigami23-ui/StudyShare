@@ -1561,8 +1561,7 @@
     startSessionTimeout();
   });
     }
-
-    function handleAdminLogin() {
+function handleAdminLogin() {
   const password = document.getElementById('adminPassword').value;
 
   fetch(`${API_BASE_URL}/admin/login`, {
@@ -1572,7 +1571,7 @@
   })
   .then(response => response.json())
   .then(data => {
-    if(!data.success) {
+    if(data.error) {  // Check for error field as backend returns error
       showToast('Invalid admin password!', 'error');
       document.getElementById('adminPassword').classList.add('shake');
       setTimeout(() => {
@@ -1580,13 +1579,16 @@
       }, 500);
       return;
     }
-    currentUser = data.user;
+    currentUser = data;  // Backend returns user directly, no .user wrapper
     saveUserSession('Admin');
     showToast('Welcome Administrator! You have full access to all features.', 'success');
     showMainApp();
     startSessionTimeout();
+  }).catch(() => {
+    showToast('Network error during admin login.', 'error');
   });
-    }
+}
+    
 
     function checkAdminStatus(userName) {
       return userName === 'Admin' || userName.toLowerCase() === 'admin';
