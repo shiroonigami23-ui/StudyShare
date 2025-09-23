@@ -72,8 +72,6 @@ const upload = multer({
 function genId() {
   return Math.random().toString(36).substr(2, 9);
 }
-
-// Auth login
 app.post('/login', (req, res) => {
   const { name, password, isAnonymous } = req.body;
   if (isAnonymous) {
@@ -84,6 +82,7 @@ app.post('/login', (req, res) => {
       isAnonymous: true,
     };
     users.push(user);
+    saveData(usersFile, users);   // <-- Add this to persist users
     return res.json(user);
   }
   if (!name) return res.status(400).json({ error: 'Name required' });
@@ -95,13 +94,17 @@ app.post('/login', (req, res) => {
     isAnonymous: false,
   };
   users.push(user);
+  saveData(usersFile, users);     // <-- Add this to persist users
   res.json(user);
 });
+
 
 // File upload
 app.post('/upload', upload.single('file'), (req, res) => {
   const { uploaderId, uploaderName, isAnonymous } = req.body;
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  // Auth login
+
   if (!uploaderId && !isAnonymous && !uploaderName)
     return res.status(400).json({ error: 'Uploader info required' });
 
@@ -155,6 +158,7 @@ app.post('/comment', (req, res) => {
   if (!text || !authorName) return res.status(400).json({ error: 'Comment or name required' });
   const comment = { id: genId(), text, authorName, authorId: authorId || null, createdAt: new Date() };
   comments.push(comment);
+  saveData(commentsFile, comments);  // <--- Add this line to save comments persistently
   res.json({ success: true, comment });
 });
 
