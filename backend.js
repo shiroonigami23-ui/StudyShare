@@ -10,9 +10,43 @@ app.use(cors());
 app.use(express.json());
 
 // In-memory storage as fallback
-let users = [];
-let comments = [];
-let votes = [];
+const fs = require('fs');
+const path = require('path');
+
+const dataDir = path.join(__dirname, 'data');
+
+// Ensure data directory exists
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir);
+}
+
+const usersFile = path.join(dataDir, 'users.json');
+const commentsFile = path.join(dataDir, 'comments.json');
+const votesFile = path.join(dataDir, 'votes.json');
+
+function loadData(filePath) {
+  if (fs.existsSync(filePath)) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  } else {
+    return [];
+  }
+}
+
+function saveData(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Load data from files on start
+let users = loadData(usersFile);
+let comments = loadData(commentsFile);
+let votes = loadData(votesFile);
+
+// When you modify these arrays, always save them back to files, e.g.:
+function addUser(user) {
+  users.push(user);
+  saveData(usersFile, users);
+}
+// Similarly for comments and votes
 
 const ADMINPASSWORD = 'Shiro';
 
