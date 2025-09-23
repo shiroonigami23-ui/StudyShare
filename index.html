@@ -1580,7 +1580,7 @@ function handleAdminLogin() {
       return;
     }
     currentUser = data;  // Backend returns user directly, no .user wrapper
-    saveUserSession('Admin');
+    saveUserSession(currentUser.name);
     showToast('Welcome Administrator! You have full access to all features.', 'success');
     showMainApp();
     startSessionTimeout();
@@ -2318,10 +2318,10 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
   }
 
   const comment = {
-    author: authorName,
+    authorName: authorName,
     text: commentText,
     createdAt: new Date(),
-    userId: currentUser?.id || 'anonymous'
+    authorId: currentUser?.id || 'anonymous'
   };
 
   fetch(`${API_BASE_URL}/comment`, {
