@@ -18,31 +18,35 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 const usersFile = path.join(dataDir, 'users.json');
 const commentsFile = path.join(dataDir, 'comments.json');
 const votesFile = path.join(dataDir, 'votes.json');
-const filesFile = path.join(dataDir, 'files.json');  // New
+const filesFile = path.join(dataDir, 'files.json');
 
 const uploadsDir = path.join(dataDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
-// Load/save helpers
+// Load/save helpers with error handling
 function loadData(filePath) {
-  if (fs.existsSync(filePath)) {
-    try {
+  try {
+    if (fs.existsSync(filePath)) {
       return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    } catch {
-      return [];
     }
-  } else return [];
+  } catch (e) {
+    console.error(`Failed loading ${filePath}:`, e);
+  }
+  return [];
 }
-
 function saveData(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error(`Failed saving ${filePath}:`, e);
+  }
 }
 
 // Load existing data
 let users = loadData(usersFile);
 let comments = loadData(commentsFile);
 let votes = loadData(votesFile);
-let files = loadData(filesFile);  // New
+let files = loadData(filesFile);
 
 const ADMINPASSWORD = 'Shiro';
 
@@ -56,7 +60,6 @@ const allowedTypes = [
 ];
 const maxFileSize = 10 * 1024 * 1024;
 
-// Multer disk storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -83,7 +86,27 @@ function getAdminByIdAndPassword(id, password) {
   return users.find((u) => u.id === id && u.isAdmin && password === ADMINPASSWORD);
 }
 
-// Login
+// Dedicated admin login
+app.post('/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMINPASSWORD) {
+    const existingAdmin = users.find(u => u.name === 'admin');
+    if (existingAdmin) return res.json(existingAdmin);
+
+    const adminUser = {
+      id: genId(),
+      name: 'admin',
+      isAdmin: true,
+      isAnonymous: false,
+    };
+    users.push(adminUser);
+    saveData(usersFile, users);
+    return res.json(adminUser);
+  }
+  res.status(403).json({ error: 'Admin login failed' });
+});
+
+// Regular user login + anonymous
 app.post('/login', (req, res) => {
   const { name, password, isAnonymous } = req.body;
   if (isAnonymous) {
@@ -111,11 +134,11 @@ app.post('/login', (req, res) => {
   res.json(user);
 });
 
-// Upload file and save metadata
+// File upload with metadata store
 app.post('/upload', upload.single('file'), (req, res) => {
   const { uploaderId, uploaderName, isAnonymous } = req.body;
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  if (!uploaderId && !isAnonymous && !uploaderName)
+  if (!uploaderId && !(isAnonymous === 'true' || isAnonymous === true) && !uploaderName)
     return res.status(400).json({ error: 'Uploader info required' });
 
   const fileMeta = {
@@ -148,7 +171,7 @@ app.post('/admin/approve', (req, res) => {
   res.json({ success: true });
 });
 
-// Reject file (removes)
+// Reject file (delete and metadata clean)
 app.post('/admin/reject', (req, res) => {
   const { fileId, adminId, adminPassword } = req.body;
   if (!getAdminByIdAndPassword(adminId, adminPassword))
@@ -160,14 +183,14 @@ app.post('/admin/reject', (req, res) => {
   // Delete file from disk
   try {
     fs.unlinkSync(path.join(uploadsDir, files[fileIndex].id));
-  } catch (e) { /* ignore error */ }
+  } catch (e) { /* ignore */ }
 
   files.splice(fileIndex, 1);
   saveData(filesFile, files);
   res.json({ success: true });
 });
 
-// Download file
+// Download
 app.get('/download/:fileId/:userId', (req, res) => {
   const { fileId, userId } = req.params;
   const user = users.find(u => u.id === userId);
@@ -177,17 +200,18 @@ app.get('/download/:fileId/:userId', (req, res) => {
   if (!file) return res.status(404).json({ error: 'File not found' });
 
   const filePath = path.join(uploadsDir, fileId);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+
   res.download(filePath, file.originalName);
 });
 
-// Upvote a file
+// Upvote
 app.post('/upvote', (req, res) => {
   const { userId, fileId } = req.body;
   const user = users.find(u => u.id === userId);
   const file = files.find(f => f.id === fileId);
   if (!user || !file) return res.status(400).json({ error: 'Invalid user or file' });
 
-  // Prevent double voting (simple check)
   const existingVote = votes.find(v => v.userId === userId && v.fileId === fileId);
   if (existingVote) return res.status(400).json({ error: 'User already voted' });
 
@@ -201,12 +225,11 @@ app.post('/upvote', (req, res) => {
   res.json({ success: true, upvotes: file.upvotes });
 });
 
-// List files for user (filter based on admin or not)
+// File list for user
 app.get('/files/:userId', (req, res) => {
   const user = users.find(u => u.id === req.params.userId);
   if (!user) return res.status(403).json({ error: 'User not found' });
 
-  // Admin sees all files; regular users see only approved
   const visibleFiles = user.isAdmin ? files : files.filter(f => f.isApproved);
   res.json(visibleFiles);
 });
@@ -221,12 +244,10 @@ app.post('/comment', (req, res) => {
   saveData(commentsFile, comments);
   res.json({ success: true, comment });
 });
-
 app.get('/comments', (req, res) => {
   res.json(comments);
 });
 
-// Admin stats
 app.get('/admin/stats/:adminId/:adminPassword', (req, res) => {
   const { adminId, adminPassword } = req.params;
   if (!getAdminByIdAndPassword(adminId, adminPassword))
