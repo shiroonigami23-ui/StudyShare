@@ -1413,6 +1413,7 @@
     });
 
     function initializeApp() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   // Generate or retrieve device ID
   deviceId = getDeviceId();
 
@@ -1423,26 +1424,26 @@
   currentTheme = localStorage.getItem('sharelit-theme') || 'light';
   setTheme(currentTheme);
 
-  // Check for saved user session info in localStorage
-  const savedUserName = localStorage.getItem('sharelit-username');
-  const sessionExpiry = localStorage.getItem('sharelit-session-expiry');
-
-  if (savedUserName && sessionExpiry && new Date().getTime() < parseInt(sessionExpiry)) {
-    // Validate and fetch full user info from backend
-    fetch(`${API_BASE_URL}/user/${savedUserName}`)
+  // Check for saved user object from localStorage
+  const stored = localStorage.getItem('sharelit.currentUser');
+if (stored) {
+  const userObj = JSON.parse(stored);
+  if (userObj.expiry && new Date().getTime() < userObj.expiry) {
+    fetch(`${API_BASE_URL}/user/${userObj.id || userObj.name}`)
       .then(res => res.json())
       .then(user => {
         if (user && user.id) {
+          if (userObj.isAdmin) {
+            user.adminPassword = userObj.adminPassword || "Shiro";
+            user.isAdmin = true;
+          }
           currentUser = user;
-          showMainApp();
-          startSessionTimeout();
-
-          // Load backend data for UI
-          refreshFiles();
-          refreshComments();
-          updateAdminStats(); // if admin
-          updateUserStats(); // user-specific stats if needed
-
+          localStorage.setItem('sharelit.currentUser', JSON.stringify({
+            ...user,
+            adminPassword: user.adminPassword,
+            expiry: userObj.expiry
+          }));
+          // Continue with app initialization...
         } else {
           clearUserSession();
           showLoginModal();
@@ -1456,6 +1457,10 @@
     clearUserSession();
     showLoginModal();
   }
+} else {
+  clearUserSession();
+  showLoginModal();
+}
     }
 
     function setupEventListeners() {
@@ -1497,14 +1502,16 @@
       
       // Anonymous upload checkbox
       document.getElementById('anonymousUpload').addEventListener('change', function() {
-        const uploaderNameInput = document.getElementById('uploaderName');
-        uploaderNameInput.disabled = this.checked;
-        if (this.checked) {
-          uploaderNameInput.value = '';
-        } else {
-          uploaderNameInput.value = currentUser?.name || '';
-        }
-      });
+  const uploaderNameInput = document.getElementById('uploaderName');
+  if (this.checked) {
+    uploaderNameInput.disabled = true;
+    uploaderNameInput.value = '';
+  } else {
+    const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
+    uploaderNameInput.disabled = false;
+    uploaderNameInput.value = currentUser?.name || '';
+  }
+});
 
       // Mobile nav
       document.querySelectorAll('.mobile-nav-item').forEach(item => {
@@ -1532,7 +1539,7 @@
     }
 
     // Enhanced Authentication
-    function handleLogin(e) {
+  function handleLogin(e) {
   e.preventDefault();
 
   const userName = document.getElementById('userName').value.trim();
@@ -1555,12 +1562,12 @@
   .then(response => response.json())
   .then(data => {
     currentUser = data; // assign backend user object
-    saveUserSession(data.name);
+    saveUserSession(data); // NOW saves the full backend user object, not just name!
     showToast(`Welcome ${data.name}!`, 'success');
     showMainApp();
     startSessionTimeout();
   });
-    }
+  }  
 function handleAdminLogin() {
   const password = document.getElementById('adminPassword').value;
 
@@ -1580,7 +1587,7 @@ function handleAdminLogin() {
       return;
     }
     currentUser = data;  // Backend returns user directly, no .user wrapper
-    saveUserSession(currentUser.name);
+    saveUserSession(data);
     showToast('Welcome Administrator! You have full access to all features.', 'success');
     showMainApp();
     startSessionTimeout();
@@ -1594,10 +1601,8 @@ function handleAdminLogin() {
       return userName === 'Admin' || userName.toLowerCase() === 'admin';
     }
 
-    function saveUserSession(userName) {
-      const expiryTime = new Date().getTime() + CONFIG.SESSION_TIMEOUT;
-      localStorage.setItem('sharelit-username', userName);
-      localStorage.setItem('sharelit-session-expiry', expiryTime.toString());
+    function saveUserSession(userObj) {
+  localStorage.setItem('sharelit.currentUser', JSON.stringify(userObj));
     }
 
     function clearUserSession() {
@@ -1755,6 +1760,7 @@ function handleAdminLogin() {
       showToast('File selected successfully!', 'success');
     }
     function handleUpload() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   const fileInput = document.getElementById('fileInput');
   const uploaderName = document.getElementById('uploaderName').value.trim();
   const isAnonymous = document.getElementById('anonymousUpload').checked;
@@ -1825,6 +1831,7 @@ function handleAdminLogin() {
 
     // Enhanced File Management
     function refreshFiles() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   const fileGrid = document.getElementById('fileGrid');
   const sortBy = document.getElementById('sortSelect').value;
 
@@ -1876,6 +1883,7 @@ function handleAdminLogin() {
     }
 
     function createFileCard(file) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
       const hasVoted = file.hasUserVoted === true;
       const canDelete = currentUser?.isAdmin || file.uploaderId === currentUser?.id;
       const canManage = currentUser?.isAdmin;
@@ -1966,6 +1974,7 @@ function handleAdminLogin() {
 
     // Enhanced Admin Functions
     function approveFile(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (currentUser?.isAdmin) {
     fetch(`${API_BASE_URL}/admin/approve`, {
       method: 'POST',
@@ -1991,6 +2000,7 @@ function handleAdminLogin() {
     }
 
     function rejectFile(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (currentUser?.isAdmin) {
     const reason = prompt('Enter rejection reason (optional):') || 'No reason provided';
     fetch(`${API_BASE_URL}/admin/reject`, {
@@ -2018,6 +2028,7 @@ function handleAdminLogin() {
     }
 
     function deleteFile(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
     return;
   }
@@ -2045,6 +2056,7 @@ function handleAdminLogin() {
     }
 
     function bulkApproveAll() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (!currentUser?.isAdmin) return;
 
   fetch(`${API_BASE_URL}/files/pending`)
@@ -2058,7 +2070,6 @@ function handleAdminLogin() {
       if (!confirm(`Approve all ${pendingFiles.length} pending files?`)) {
         return;
       }
-
       const approvePromises = pendingFiles.map(file =>
         fetch(`${API_BASE_URL}/admin/approve`, {
           method: 'POST',
@@ -2083,6 +2094,7 @@ function handleAdminLogin() {
     }
 
     function showAdminDashboard() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
       if (!currentUser?.isAdmin) {
         showToast('Access denied. Admin privileges required.', 'error');
         return;
@@ -2098,6 +2110,7 @@ function handleAdminLogin() {
     }
 
     function updateAdminStats() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (!currentUser?.isAdmin) return;
 
   fetch(`${API_BASE_URL}/files/stats`)
@@ -2122,6 +2135,7 @@ function handleAdminLogin() {
     });
     }
     function updatePendingFilesList() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   fetch(`${API_BASE_URL}/files/pending`)
     .then(res => res.json())
     .then(pendingFiles => {
@@ -2152,6 +2166,7 @@ function handleAdminLogin() {
     }
 
     function updateAdminFilesList() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   const container = document.getElementById('allFilesList');
   const filter = document.getElementById('adminFilterSelect')?.value || 'all';
 
@@ -2210,6 +2225,7 @@ function handleAdminLogin() {
     }
 
     function exportData() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   Promise.all([
     fetch(`${API_BASE_URL}/files/${currentUser.id}`).then(res => res.json()),
     fetch(`${API_BASE_URL}/comments`).then(res => res.json())
@@ -2237,6 +2253,7 @@ function handleAdminLogin() {
 
     // Enhanced Utility Functions
     function toggleUpvote(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (!currentUser) {
     showToast('Login required to upvote.', 'error');
     return;
@@ -2263,6 +2280,7 @@ function handleAdminLogin() {
 }
 
     function downloadFile(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   // Always fetch latest file data from backend!
   fetch(`${API_BASE_URL}/files/${currentUser.id}`)
     .then(response => response.json())
@@ -2280,6 +2298,7 @@ function handleAdminLogin() {
     }
 
     function showFileDetails(fileId) {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   fetch(`${API_BASE_URL}/files/${currentUser.id}`)
     .then(response => response.json())
     .then(files => {
@@ -2308,7 +2327,7 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
     // Enhanced Comments System
     function handleCommentSubmit(e) {
   e.preventDefault();
-
+const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   const authorName = document.getElementById('commentAuthor').value.trim();
   const commentText = document.getElementById('commentText').value.trim();
 
@@ -2389,6 +2408,7 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
 
     // Enhanced Data Management
     function loadUserData() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
       updateFileDisplay();
       updateCommentsDisplay();
       updateUserStats();
@@ -2398,6 +2418,7 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
     }
 
     function updateUserStats() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
       if (!currentUser) return;
       
       const userFiles = files.filter(f => f.uploaderId === currentUser.id);
@@ -2574,6 +2595,7 @@ ${file.rejectedReason ? `Rejection reason: ${file.rejectedReason}` : ''}
 
     // Additional Helper Functions
     function showUserProfile() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
       if (!currentUser) return;
       
       const userFiles = files.filter(f => f.uploaderId === currentUser.id);
@@ -2604,6 +2626,7 @@ Join date: ${localStorage.getItem('sharelit-session-expiry') ? formatDate(new Da
     }
 
     function exportUserData() {
+      const currentUser = JSON.parse(localStorage.getItem('sharelit.currentUser'));
   if (!currentUser) return;
 
   // Fetch files and comments from the backend first!
