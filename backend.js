@@ -7,11 +7,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Persistent storage paths
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
@@ -23,7 +21,7 @@ const filesFile = path.join(dataDir, 'files.json');
 const uploadsDir = path.join(dataDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
-// Load/save helpers with error handling
+// Helpers
 function loadData(filePath) {
   try {
     if (fs.existsSync(filePath)) {
@@ -42,13 +40,13 @@ function saveData(filePath, data) {
   }
 }
 
-// Load existing data
+// Load all data on start
 let users = loadData(usersFile);
 let comments = loadData(commentsFile);
 let votes = loadData(votesFile);
 let files = loadData(filesFile);
 
-const ADMINPASSWORD = 'Shiro';
+const ADMINPASSWORD = process.env.ADMIN_PASSWORD || 'Shiro';
 
 const allowedTypes = [
   'application/pdf',
@@ -61,21 +59,16 @@ const allowedTypes = [
 const maxFileSize = 10 * 1024 * 1024;
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
+  destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + '-' + file.originalname);
   },
 });
-
 const upload = multer({
   storage,
   limits: { fileSize: maxFileSize },
-  fileFilter: (req, file, cb) => {
-    cb(null, allowedTypes.includes(file.mimetype));
-  },
+  fileFilter: (req, file, cb) => cb(null, allowedTypes.includes(file.mimetype)),
 });
 
 function genId() {
@@ -83,42 +76,40 @@ function genId() {
 }
 
 function getAdminByIdAndPassword(id, password) {
-  return users.find((u) => u.id === id && u.isAdmin && password === ADMINPASSWORD);
+  return users.find(u => u.id === id && u.isAdmin && password === ADMINPASSWORD);
 }
 
-// Dedicated admin login
 app.post('/admin/login', (req, res) => {
   const { password } = req.body;
   if (password === ADMINPASSWORD) {
-    const existingAdmin = users.find(u => u.name === 'admin');
-    if (existingAdmin) return res.json(existingAdmin);
-
-    const adminUser = {
-      id: genId(),
-      name: 'admin',
-      isAdmin: true,
-      isAnonymous: false,
-    };
-    users.push(adminUser);
-    saveData(usersFile, users);
-    return res.json(adminUser);
+    let existingAdmin = users.find(u => u.name === 'admin');
+    if (!existingAdmin) {
+      existingAdmin = {
+        id: genId(),
+        name: 'admin',
+        isAdmin: true,
+        isAnonymous: false,
+      };
+      users.push(existingAdmin);
+      saveData(usersFile, users);
+    }
+    return res.json(existingAdmin);
   }
   res.status(403).json({ error: 'Admin login failed' });
 });
 
-// Regular user login + anonymous
 app.post('/login', (req, res) => {
   const { name, password, isAnonymous } = req.body;
   if (isAnonymous) {
-    const user = {
+    const anonUser = {
       id: genId(),
       name: `Anonymous${genId()}`,
       isAdmin: false,
       isAnonymous: true,
     };
-    users.push(user);
+    users.push(anonUser);
     saveData(usersFile, users);
-    return res.json(user);
+    return res.json(anonUser);
   }
   if (!name) return res.status(400).json({ error: 'Name required' });
 
@@ -134,7 +125,6 @@ app.post('/login', (req, res) => {
   res.json(user);
 });
 
-// File upload with metadata store
 app.post('/upload', upload.single('file'), (req, res) => {
   const { uploaderId, uploaderName, isAnonymous } = req.body;
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -148,7 +138,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     uploaderName: uploaderName || null,
     isAnonymous: isAnonymous === 'true' || isAnonymous === true,
     isApproved: false,
-    uploadDate: new Date(),
+    createdAt: new Date(),
     upvotes: 0,
   };
   files.push(fileMeta);
@@ -157,7 +147,6 @@ app.post('/upload', upload.single('file'), (req, res) => {
   res.json({ success: true, file: fileMeta });
 });
 
-// Approve file
 app.post('/admin/approve', (req, res) => {
   const { fileId, adminId, adminPassword } = req.body;
   if (!getAdminByIdAndPassword(adminId, adminPassword))
@@ -165,13 +154,13 @@ app.post('/admin/approve', (req, res) => {
 
   const file = files.find(f => f.id === fileId);
   if (!file) return res.status(404).json({ error: 'File not found' });
+  if (file.isApproved) return res.status(400).json({ error: 'File already approved' });
 
   file.isApproved = true;
   saveData(filesFile, files);
   res.json({ success: true });
 });
 
-// Reject file (delete and metadata clean)
 app.post('/admin/reject', (req, res) => {
   const { fileId, adminId, adminPassword } = req.body;
   if (!getAdminByIdAndPassword(adminId, adminPassword))
@@ -180,17 +169,15 @@ app.post('/admin/reject', (req, res) => {
   const fileIndex = files.findIndex(f => f.id === fileId);
   if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
 
-  // Delete file from disk
   try {
     fs.unlinkSync(path.join(uploadsDir, files[fileIndex].id));
-  } catch (e) { /* ignore */ }
+  } catch (e) {}
 
   files.splice(fileIndex, 1);
   saveData(filesFile, files);
   res.json({ success: true });
 });
 
-// Download
 app.get('/download/:fileId/:userId', (req, res) => {
   const { fileId, userId } = req.params;
   const user = users.find(u => u.id === userId);
@@ -198,14 +185,13 @@ app.get('/download/:fileId/:userId', (req, res) => {
 
   const file = files.find(f => f.id === fileId);
   if (!file) return res.status(404).json({ error: 'File not found' });
-
+  
   const filePath = path.join(uploadsDir, fileId);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
 
   res.download(filePath, file.originalName);
 });
 
-// Upvote
 app.post('/upvote', (req, res) => {
   const { userId, fileId } = req.body;
   const user = users.find(u => u.id === userId);
@@ -225,7 +211,6 @@ app.post('/upvote', (req, res) => {
   res.json({ success: true, upvotes: file.upvotes });
 });
 
-// File list for user
 app.get('/files/:userId', (req, res) => {
   const user = users.find(u => u.id === req.params.userId);
   if (!user) return res.status(403).json({ error: 'User not found' });
@@ -234,7 +219,6 @@ app.get('/files/:userId', (req, res) => {
   res.json(visibleFiles);
 });
 
-// Comments API
 app.post('/comment', (req, res) => {
   const { text, authorName, authorId } = req.body;
   if (!text || !authorName) return res.status(400).json({ error: 'Comment or name required' });
@@ -244,6 +228,7 @@ app.post('/comment', (req, res) => {
   saveData(commentsFile, comments);
   res.json({ success: true, comment });
 });
+
 app.get('/comments', (req, res) => {
   res.json(comments);
 });
