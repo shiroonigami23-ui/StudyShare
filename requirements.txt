@@ -1,0 +1,7 @@
+python=3.10
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Werkzeug
+gunicorn
+psycopg2-binary
