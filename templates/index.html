@@ -112,5 +112,43 @@
             {% endfor %}
         </div>
     </div>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">StudyShare</div>
+            <nav class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <a href="#">Upload Files</a> 
+                </nav>
+        </aside>
+
+        <main class="content-area">
+            <header class="top-header">
+                <div class="user-info-actions">
+                    <p>Hello, **{{ username }}**!</p>
+                    <span class="badge">New Member</span> 
+                    <button class="btn-primary">Upload</button>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div class="dashboard-title">StudyShare Dashboard</div>
+            
+            <div class="card filter-card">
+                <p>Logged in successfully!</p> 
+                <div class="filter-controls">
+                    <select>...</select>
+                    <input type="text" placeholder="Filename or description">
+                    <button class="btn-apply">Apply Filters</button>
+                    <button class="btn-clear">Clear Filters</button>
+                </div>
+            </div>
+
+            <div class="card results-card">
+                <p>No study materials found matching your filters. <a>Upload one now!</a></p>
+            </div>
+            
+        </main>
+    </div>
+    
 </body>
 </html>
