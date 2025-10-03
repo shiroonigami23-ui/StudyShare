@@ -4,17 +4,18 @@
 /* Vibrant Color Palette */
 :root {
     --primary: #4f46e5;       /* Vibrant Indigo - Main Brand Color */
-    --primary-light: #818cf8; /* Light Indigo */
-    --accent-red: #ef4444;    /* Vibrant Red */
-    --accent-green: #10b981;  /* Vibrant Green */
+    --primary-light: #6366f1; /* Hover State */
+    --accent-red: #ef4444;    /* Logout/Danger */
+    --accent-green: #10b981;  /* Success/Uploader */
     --text-dark: #1f2937;     /* Dark Text */
     --text-light: #6b7280;    /* Secondary Text */
     --background: #f4f7fa;    /* Off-White Background */
     --card-bg: white;
     --border-color: #e5e7eb;
+    --secondary-accent: #22c55e; /* Green for key stats */
 }
 
-/* Base & Layout */
+/* Base & Typography */
 body {
     margin: 0;
     font-family: 'Poppins', sans-serif;
@@ -22,17 +23,28 @@ body {
     color: var(--text-dark);
 }
 
+.text-primary { color: var(--primary); }
+.text-accent { color: var(--secondary-accent); }
+.text-red { color: var(--accent-red); }
+.text-secondary { color: var(--text-light); }
+
 .app-container {
     display: flex;
     min-height: 100vh;
 }
 
-/* Sidebar Styling */
+/* ---------------------------------------------------- */
+/* 1. Sidebar & Profile */
+/* ---------------------------------------------------- */
 .sidebar {
-    width: 260px; /* Slightly wider */
+    width: 260px;
     background-color: var(--card-bg); 
     padding: 30px 20px;
     box-shadow: 1px 0 10px rgba(0, 0, 0, 0.05);
+    /* Make the sidebar sticky for a true app feel */
+    position: sticky; 
+    top: 0;
+    align-self: flex-start; 
 }
 
 .logo {
@@ -52,30 +64,27 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 .profile-thumb {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid var(--primary);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 .user-name {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
-    margin: 5px 0;
+    margin: 0;
 }
 .edit-profile-link {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--text-light);
     text-decoration: none;
+    display: block;
+    margin-top: 5px;
 }
 
 /* Navigation Links */
-.nav-links {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
 .nav-item {
     display: flex;
     align-items: center;
@@ -86,30 +95,30 @@ body {
     transition: all 0.2s;
     font-weight: 600;
 }
-.nav-item:hover {
-    background-color: var(--primary-light);
-    color: white;
-}
-.nav-item.active {
+.nav-item:hover, .nav-item.active {
     background-color: var(--primary);
     color: white;
     box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
 }
 .icon { margin-right: 10px; }
+.nav-admin { background-color: #fca5a5; color: var(--text-dark); }
+.nav-admin:hover { background-color: var(--accent-red); color: white; }
 
 
-/* Main Content Area */
+/* ---------------------------------------------------- */
+/* 2. Main Content & Header */
+/* ---------------------------------------------------- */
 .content-area {
     flex-grow: 1; 
     padding: 30px 50px;
 }
 
-/* Top Header */
 .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
     margin-bottom: 30px;
 }
 
@@ -117,7 +126,6 @@ body {
     font-size: 30px;
     font-weight: 800;
     margin: 0;
-    color: var(--text-dark);
 }
 
 /* Button Styling */
@@ -129,38 +137,28 @@ body {
     transition: all 0.2s;
     border: none;
     text-decoration: none;
+    display: inline-block;
 }
 
-.btn-primary {
-    background-color: var(--primary);
-    color: white;
-}
-.btn-primary:hover {
-    background-color: var(--primary-light);
-}
+.btn-primary { background-color: var(--primary); color: white; }
+.btn-primary:hover { background-color: var(--primary-light); }
+.btn-logout { background-color: var(--accent-red); color: white; margin-left: 10px; }
 
-.btn-logout {
-    background-color: var(--accent-red); 
-    color: white;
-    margin-left: 10px;
-}
 
-/* Card Styling */
-.card {
-    background-color: var(--card-bg);
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-}
-
-.card-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-top: 0;
+/* Flash Messages */
+.alert-card {
+    padding: 15px;
+    border-radius: 8px;
     margin-bottom: 20px;
+    font-weight: 600;
 }
+.alert-success { background-color: #d1fae5; color: var(--accent-green); }
+.alert-error { background-color: #fee2e2; color: var(--accent-red); }
 
-/* 5. Key Statistics Grid */
+
+/* ---------------------------------------------------- */
+/* 3. Stats Grid */
+/* ---------------------------------------------------- */
 .stat-grid {
     display: flex;
     gap: 20px;
@@ -172,22 +170,17 @@ body {
     background-color: var(--card-bg);
     padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.05); /* Lighter border */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.stat-label {
-    font-size: 14px;
-    color: var(--text-light);
-    margin-bottom: 5px;
-}
+.stat-label { font-size: 14px; color: var(--text-light); margin-bottom: 5px; }
 
 .stat-value {
     font-size: 32px;
     font-weight: 800;
-    color: var(--primary);
     margin: 0;
 }
-.text-red { color: var(--accent-red); }
+
 
 /* Badges */
 .badge {
@@ -199,23 +192,68 @@ body {
 }
 
 .badge-new { background-color: #fef3c7; color: #b45309; }
-.badge-uploader { background-color: #d1fae5; color: var(--accent-green); }
 .badge-regular { background-color: #e0e7ff; color: var(--primary); }
+.badge-uploader { background-color: #d1fae5; color: var(--accent-green); }
+.badge-admin { background-color: #fecaca; color: var(--accent-red); }
 
-/* 7. Content Row (Materials + Comments) */
+
+/* ---------------------------------------------------- */
+/* 4. Filters */
+/* ---------------------------------------------------- */
+.filter-card { border-left: 5px solid var(--primary-light); }
+
+.filter-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.filter-select, .filter-input {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    flex-grow: 1; 
+    max-width: 200px;
+}
+
+
+/* ---------------------------------------------------- */
+/* 5. Content Row & Materials List */
+/* ---------------------------------------------------- */
 .content-row {
     display: flex;
     gap: 30px;
 }
-.content-main { flex: 7; } /* 70% width for materials */
-.content-sidebar { flex: 3; } /* 30% width for comments */
+.content-main { flex: 7; } 
+.content-sidebar { flex: 3; } 
 
-/* Comments Section */
-.comments-card {
-    position: sticky; /* Keeps it in view as user scrolls */
-    top: 30px; 
-    border-left: 5px solid var(--accent-red);
+.material-item {
+    border-bottom: 1px solid var(--border-color);
+    padding: 15px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
+.material-name { margin: 0; font-weight: 600; }
+
+.action-btn {
+    text-decoration: none;
+    color: var(--primary);
+    font-size: 14px;
+    margin-left: 15px;
+    transition: color 0.2s;
+}
+.action-btn:hover { color: var(--primary-light); }
+.action-delete { color: var(--accent-red); }
+.action-like { color: var(--secondary-accent); }
+
+.empty-state { text-align: center; padding: 50px 0; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-light); }
+
+
+/* ---------------------------------------------------- */
+/* 6. Comments Section */
+/* ---------------------------------------------------- */
+.comments-card { border-left: 5px solid var(--accent-green); }
 
 .comment-form textarea {
     width: 100%;
@@ -228,28 +266,28 @@ body {
     box-sizing: border-box;
 }
 
-.btn-post-comment { padding: 8px 15px; font-size: 14px; }
-
 .comment-list {
     margin-top: 20px;
     padding-top: 15px;
     border-top: 1px dashed var(--border-color);
 }
 
+.comment-item, .reply-item {
+    padding: 10px 0;
+}
 .comment-meta {
     font-size: 11px;
     color: var(--text-light);
     margin-bottom: 3px;
-    margin-top: 10px;
+    font-weight: 600;
 }
 .comment-text {
     font-size: 14px;
     margin: 0;
     padding-left: 5px;
 }
-
 .reply-item {
-    margin-left: 15px;
+    margin-left: 20px;
     padding-left: 10px;
     border-left: 2px solid #e0e7ff; 
 }
