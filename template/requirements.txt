@@ -3,3 +3,4 @@ Flask-SQLAlchemy
 Flask-Login
 Werkzeug
 gunicorn  # New dependency for production server
+psycopg2-binary
