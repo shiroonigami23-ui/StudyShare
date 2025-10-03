@@ -12,7 +12,14 @@ app = Flask(__name__)
 
 # Basic app configuration
 app.config['SECRET_KEY'] = 'YOUR_SUPER_SECURE_SECRET_KEY_12345' # **CHANGE THIS!**
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///studyshare.db'
+import os
+# ... other imports ...
+
+# Use environment variable 'DATABASE_URL' provided by Railway, or fall back to SQLite for local testing
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL', 
+    'sqlite:///studyshare.db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # File upload configuration (25 MB limit)
