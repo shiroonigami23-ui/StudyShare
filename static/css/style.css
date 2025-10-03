@@ -1,100 +1,84 @@
-/* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+/* --- NEW FEATURES CSS --- */
 
-:root {
-    --primary: #4f46e5; /* Indigo */
-    --background: #f8fafc; /* Light Gray */
-    --text-color: #1e293b; /* Dark Slate */
-}
-
-body {
-    margin: 0;
-    font-family: 'Inter', sans-serif;
-    background-color: var(--background);
-    color: var(--text-color);
-}
-
-.app-container {
-    display: flex;
-    min-height: 100vh;
-}
-.sidebar {
-    width: 240px;
-    background-color: var(--text-color); /* Dark background for sidebar */
-    color: white;
-    padding: 20px;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-}
-
-.logo {
-    font-size: 24px;
+/* User Badges */
+.badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
     font-weight: 700;
-    padding-bottom: 30px;
-    color: var(--primary); /* Use primary color for branding */
+    margin-right: 15px;
+    text-transform: uppercase;
 }
 
-.sidebar a {
-    display: block;
-    padding: 10px 0;
-    margin-bottom: 10px;
-    color: #e2e8f0; /* Light text */
-    text-decoration: none;
-    transition: background-color 0.2s;
-    border-radius: 4px;
-    padding-left: 10px;
+.badge-new {
+    background-color: #fef3c7; /* Light Yellow */
+    color: #b45309; /* Dark Orange */
 }
 
-.sidebar a:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
-}
-.content-area {
-    flex-grow: 1; /* Takes up the rest of the space */
-    padding: 20px 40px;
+.badge-regular {
+    background-color: #dbeafe; /* Light Blue */
+    color: var(--primary); 
 }
 
-.top-header {
-    display: flex;
-    justify-content: flex-end; /* Push items to the right */
-    align-items: center;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 30px;
+.badge-uploader {
+    background-color: #d1fae5; /* Light Green */
+    color: var(--success);
 }
 
-.dashboard-title {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text-color);
-    margin-bottom: 20px;
-}
-/* Modern Button Style */
-.btn-primary {
-    background-color: var(--primary);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.2s;
+/* Comments Section */
+.comments-card {
+    border-left: 5px solid var(--secondary); /* Differentiate from primary content */
 }
 
-.btn-primary:hover {
-    background-color: #6366f1; /* Slightly lighter on hover */
-}
-
-/* Card Style for Filters/Content */
-.card {
-    background-color: white;
-    padding: 25px;
+.comment-form textarea {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box; /* Include padding in the element's total width and height */
 }
 
-.filter-controls {
-    display: flex;
-    gap: 15px; /* Space between filter inputs */
-    align-items: center;
+.comment-list {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.comment-item {
+    background-color: #fefefe;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #f0f4f8;
+    margin-bottom: 15px;
+}
+
+.comment-meta {
+    font-size: 12px;
+    color: var(--secondary);
+    margin-bottom: 5px;
+}
+
+.comment-text {
+    margin: 5px 0 10px 0;
+    line-height: 1.5;
+}
+
+.btn-reply {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0;
+}
+
+.reply-item {
+    margin-top: 10px;
+    margin-left: 25px;
+    padding-left: 15px;
+    border-left: 2px solid #e0e7ff; /* Light blue line for reply thread */
 }
