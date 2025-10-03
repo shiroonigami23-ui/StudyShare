@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        /* Profile specific styling (minimal, relying mostly on style.css) */
+        .profile-card-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 800px;
+            margin: 0 auto; /* Center the content */
+        }
+        .profile-form-group {
+            margin-bottom: 20px;
+        }
+        .profile-form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+        .profile-form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .profile-current-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--primary);
+            margin-bottom: 15px;
+        }
+        .file-upload-input {
+            border: none !important; /* Overriding border for file input */
+        }
+        .user-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .status-item {
+            padding: 15px;
+            border-radius: 10px;
+            background-color: #f0f4f8; /* Light blue background */
+        }
+        .status-item p {
+            margin: 0;
+        }
+        .status-item strong {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+             <div class="logo">✨ StudyShare</div>
+             <div class="profile-summary">
+                <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
+                     alt="Profile Picture" class="profile-thumb">
+                <p class="user-name">{{ user_data.username|default('Guest') }}</p>
+                <a href="{{ url_for('profile_settings') }}" class="edit-profile-link">Edit Profile</a>
+            </div>
+             <nav class="nav-links">
+                <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="icon">📊</span> Dashboard</a>
+                <a href="{{ url_for('profile_settings') }}" class="nav-item active"><span class="icon">⚙️</span> Profile Settings</a>
+                <a href="{{ url_for('logout') }}" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+
+            <header class="top-header">
+                <div class="header-greeting">
+                    <h1 class="dashboard-title">Profile Settings</h1>
+                    <p class="greeting-message">Manage your account information and profile picture.</p>
+                </div>
+            </header>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert-card alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="profile-card-container">
+                
+                <div class="card">
+                    <h3 class="card-title">Account Status</h3>
+                    <div class="user-status-grid">
+                        <div class="status-item">
+                            <p>Username: <strong>{{ user_data.username }}</strong></p>
+                        </div>
+                        <div class="status-item">
+                            <p>Email: <strong>{{ user_data.email }}</strong></p>
+                        </div>
+                        <div class="status-item">
+                            <p>Role: <strong class="text-primary">{{ user_data.role|upper }}</strong></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Update Profile Picture</h3>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="profile-form-group">
+                            <label>Current Profile Picture:</label>
+                            <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
+                                 alt="Current Profile Picture" class="profile-current-pic">
+                        </div>
+
+                        <div class="profile-form-group">
+                            <label for="profile_pic">Choose New Picture (.jpg, .png, .gif):</label>
+                            <input type="file" name="profile_pic" id="profile_pic" class="file-upload-input" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary">Upload Picture</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Change Password</h3>
+
+                    <form method="POST">
+                        <div class="profile-form-group">
+                            <label for="current_password">Current Password:</label>
+                            <input type="password" name="current_password" id="current_password" required>
+                        </div>
+                        <div class="profile-form-group">
+                            <label for="new_password">New Password (Min 8 Characters):</label>
+                            <input type="password" name="new_password" id="new_password" required>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">Update Password</button>
+                    </form>
+                </div>
+                
+            </div>
+            
+        </main>
+    </div>
+</body>
+</html>
