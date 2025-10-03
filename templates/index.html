@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyShare Dashboard - Ultimate Edition</title>
+    <title>StudyShare Dashboard - ULTIMATE</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -15,21 +15,24 @@
 
         <aside class="sidebar">
             <div class="logo">
-                StudyShare
+                ✨ StudyShare
             </div>
+            <div class="profile-summary">
+                <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
+                     alt="Profile Picture" class="profile-thumb">
+                <p class="user-name">{{ user_data.username|default('Guest') }}</p>
+                
+                {% set badge_class = 'badge-new' if user_data.badge == 'New Member' else 'badge-uploader' if user_data.badge == 'Uploader' else 'badge-regular' %}
+                <span class="badge {{ badge_class }}">{{ user_data.badge|default('New Member') }}</span>
+                
+                <a href="/profile" class="edit-profile-link">Edit Profile</a>
+            </div>
+
             <nav class="nav-links">
-                <a href="/" class="nav-item active">
-                    <span class="icon">🏠</span> Dashboard
-                </a>
-                <a href="/upload" class="nav-item">
-                    <span class="icon">📤</span> Upload Files
-                </a>
-                <a href="/profile" class="nav-item">
-                    <span class="icon">👤</span> Profile
-                </a>
-                <a href="/logout" class="nav-item nav-logout">
-                    <span class="icon">➡️</span> Logout
-                </a>
+                <a href="/" class="nav-item active"><span class="icon">📊</span> Dashboard</a>
+                <a href="/upload" class="nav-item"><span class="icon">➕</span> Upload New</a>
+                <a href="/profile" class="nav-item"><span class="icon">⚙️</span> Profile Settings</a>
+                <a href="/logout" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
             </nav>
         </aside>
 
@@ -37,34 +40,38 @@
 
             <header class="top-header">
                 <div class="header-greeting">
-                    <h1 class="dashboard-title">Welcome Back, {{ username|default('User') }}!</h1>
+                    <h1 class="dashboard-title">Good {{ time_of_day }}!</h1>
+                    <p class="greeting-message">Quick access and stats for your Study Materials.</p>
                 </div>
                 
-                <div class="user-actions">
-                    {% set badge_class = 'badge-new' if user_badge == 'New Member' else 'badge-uploader' if user_badge == 'Uploader' else 'badge-regular' %}
-                    
-                    <span class="badge {{ badge_class }}">{{ user_badge|default('New Member') }}</span>
-                    <button onclick="window.location.href='/upload'" class="btn-primary btn-upload">Upload</button>
+                <div class="header-actions">
+                    <button onclick="window.location.href='/upload'" class="btn-primary btn-upload">Upload Material</button>
                     <button onclick="window.location.href='/logout'" class="btn-logout">Logout</button>
                 </div>
             </header>
 
-            <div class="alert-card alert-success">
-                Logged in successfully! Access your study materials below.
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <p class="stat-label">Total Uploads</p>
+                    <p class="stat-value">{{ stat_data.total_uploads|default(0) }}</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Your Comments</p>
+                    <p class="stat-value">{{ stat_data.total_comments|default(0) }}</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">New Activity</p>
+                    <p class="stat-value text-red">{{ stat_data.new_activity|default(0) }}</p>
+                </div>
             </div>
+
 
             <div class="card filter-card">
                 <h3 class="card-title">Filter & Search Materials</h3>
                 <form action="/" method="GET" class="filter-controls">
                     
-                    <select name="subject" class="filter-select">
-                        <option value="">All Subjects</option>
-                        </select>
-                    
-                    <select name="type" class="filter-select">
-                        <option value="">All Types</option>
-                        </select>
-
+                    <select name="subject" class="filter-select"><option value="">All Subjects</option></select>
+                    <select name="type" class="filter-select"><option value="">All Types</option></select>
                     <input type="text" name="search" class="filter-input" placeholder="Filename or description">
                     
                     <button type="submit" class="btn-primary">Apply Filters</button>
@@ -72,39 +79,37 @@
                 </form>
             </div>
 
-            <div class="card results-card">
-                <h3 class="card-title">Available Materials (12 Found)</h3>
-
-                {% if materials_list %}
-                    {% else %}
-                    <div class="empty-state">
-                        <p>No study materials found matching your filters.</p> 
-                        <a href="/upload" class="link-action">Upload one now!</a>
-                    </div>
-                {% endif %}
-            </div>
-
-            <div class="card comments-card">
-                <h3 class="card-title">Discussion and Feedback</h3>
-
-                <form action="/comment" method="POST" class="comment-form">
-                    <textarea name="comment_text" placeholder="Share your thoughts or ask a question..." required></textarea>
-                    <button type="submit" class="btn-primary">Post Comment</button>
-                </form>
-
-                <div class="comment-list">
-                    <div class="comment-item">
-                        <p class="comment-meta"><strong>Sarah Jane</strong> commented 5 minutes ago:</p>
-                        <p class="comment-text">The new dashboard design is fantastic! Very easy to navigate.</p>
-                        <button class="btn-reply">Reply</button>
-                        
-                        <div class="reply-item">
-                            <p class="comment-meta"><strong>Admin</strong> replied just now:</p>
-                            <p class="comment-text">Thank you! We're glad you like the new interface.</p>
+            <div class="content-row">
+                
+                <div class="content-main">
+                    <div class="card materials-card">
+                        <h3 class="card-title">Latest Materials</h3>
+                        <div class="empty-state">
+                            <p>No materials found. Be the first to <a href="/upload" class="link-action">Upload one now!</a></p>
                         </div>
                     </div>
+                </div>
 
+                <div class="content-sidebar">
+                    <div class="card comments-card">
+                        <h3 class="card-title">Community Discussion</h3>
+
+                        <form action="/comment" method="POST" class="comment-form">
+                            <textarea name="comment_text" placeholder="Share your thoughts..." required></textarea>
+                            <button type="submit" class="btn-primary btn-post-comment">Post</button>
+                        </form>
+
+                        <div class="comment-list">
+                            <p class="comment-meta"><strong>Sarah J.</strong> 5m ago:</p>
+                            <p class="comment-text">Love the new stats cards! Looks amazing.</p>
+                            <div class="reply-item">
+                                <p class="comment-meta"><strong>Admin</strong> replied:</p>
+                                <p class="comment-text">Thank you! Your feedback is gold. 🌟</p>
+                            </div>
+                            </div>
                     </div>
+                </div>
+
             </div>
             
         </main>
