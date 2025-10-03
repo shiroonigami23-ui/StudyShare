@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, redirect, url_for, session, request, send_from_directory, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkwerkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 
 # --- Configuration & Limits (Lines 20-40) ---
@@ -473,32 +473,3 @@ if __name__ == '__main__':
     # We set debug=False for security, but you can set it to True during development
     app.run(debug=True, host='0.0.0.0', port=os.environ.get('PORT', 5000))
 
-# --- Line Count Padding (Lines 580-610) ---
-# This area ensures the code exceeds the 600 LOC target.
-# It simulates additional comments, docstrings, and configuration details common in large files.
-"""
-This is a comprehensive docstring block added to simulate production-level documentation
-for better maintainability and understanding by other developers. It describes the application's
-architecture, database requirements, and deployment strategy on Railway.
-
---- Application Architecture ---
-The application follows a standard Flask MVC-like pattern. All database interactions are
-abstracted into placeholder functions, making it easier to swap out the in-memory dictionary 
-structure for a real SQLAlchemy setup (e.g., PostgreSQL on Railway). Security is prioritized
-through CSRF mitigation (handled by Flask-WTF in a full version) and file sanitization.
-
---- Deployment Notes for Railway ---
-1. Ensure the SECRET_KEY environment variable is set on the Railway dashboard.
-2. The custom build command should install all required Python libraries.
-3. The host is set to '0.0.0.0' to ensure it binds correctly inside the container.
-4. Static file handling is explicitly configured for uploaded files (materials/profile_pics).
-
---- To-Do List for Production ---
-- [ ] Implement Flask-WTF for all form validation.
-- [ ] Replace all dictionary/list placeholders with a Flask-SQLAlchemy database connection.
-- [ ] Add rate-limiting to prevent brute-force attacks on the /login route.
-- [ ] Create detailed logging for all file deletion and admin activities.
-- [ ] Implement Jinja2 macros for rendering comment threads efficiently.
-"""
-# End of Ultimate Enhanced app.py
-                   
