@@ -1,84 +1,255 @@
-/* --- NEW FEATURES CSS --- */
+/* --- ULTIMATE DASHBOARD CSS --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
 
-/* User Badges */
+/* Vibrant Color Palette */
+:root {
+    --primary: #4f46e5;       /* Vibrant Indigo - Main Brand Color */
+    --primary-light: #818cf8; /* Light Indigo */
+    --accent-red: #ef4444;    /* Vibrant Red */
+    --accent-green: #10b981;  /* Vibrant Green */
+    --text-dark: #1f2937;     /* Dark Text */
+    --text-light: #6b7280;    /* Secondary Text */
+    --background: #f4f7fa;    /* Off-White Background */
+    --card-bg: white;
+    --border-color: #e5e7eb;
+}
+
+/* Base & Layout */
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--background);
+    color: var(--text-dark);
+}
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    width: 260px; /* Slightly wider */
+    background-color: var(--card-bg); 
+    padding: 30px 20px;
+    box-shadow: 1px 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.logo {
+    font-size: 26px;
+    font-weight: 800;
+    padding-bottom: 20px;
+    color: var(--primary);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+/* Profile Summary */
+.profile-summary {
+    text-align: center;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+.profile-thumb {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary);
+    margin-bottom: 10px;
+}
+.user-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 5px 0;
+}
+.edit-profile-link {
+    font-size: 14px;
+    color: var(--text-light);
+    text-decoration: none;
+}
+
+/* Navigation Links */
+.nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    color: var(--text-dark); 
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+.nav-item:hover {
+    background-color: var(--primary-light);
+    color: white;
+}
+.nav-item.active {
+    background-color: var(--primary);
+    color: white;
+    box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+}
+.icon { margin-right: 10px; }
+
+
+/* Main Content Area */
+.content-area {
+    flex-grow: 1; 
+    padding: 30px 50px;
+}
+
+/* Top Header */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+.dashboard-title {
+    font-size: 30px;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-dark);
+}
+
+/* Button Styling */
+.btn-primary, .btn-secondary, .btn-logout {
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: white;
+}
+.btn-primary:hover {
+    background-color: var(--primary-light);
+}
+
+.btn-logout {
+    background-color: var(--accent-red); 
+    color: white;
+    margin-left: 10px;
+}
+
+/* Card Styling */
+.card {
+    background-color: var(--card-bg);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* 5. Key Statistics Grid */
+.stat-grid {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    flex: 1;
+    background-color: var(--card-bg);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.05); /* Lighter border */
+}
+
+.stat-label {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0;
+}
+.text-red { color: var(--accent-red); }
+
+/* Badges */
 .badge {
-    padding: 5px 10px;
+    padding: 5px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
-    margin-right: 15px;
     text-transform: uppercase;
 }
 
-.badge-new {
-    background-color: #fef3c7; /* Light Yellow */
-    color: #b45309; /* Dark Orange */
-}
+.badge-new { background-color: #fef3c7; color: #b45309; }
+.badge-uploader { background-color: #d1fae5; color: var(--accent-green); }
+.badge-regular { background-color: #e0e7ff; color: var(--primary); }
 
-.badge-regular {
-    background-color: #dbeafe; /* Light Blue */
-    color: var(--primary); 
+/* 7. Content Row (Materials + Comments) */
+.content-row {
+    display: flex;
+    gap: 30px;
 }
-
-.badge-uploader {
-    background-color: #d1fae5; /* Light Green */
-    color: var(--success);
-}
+.content-main { flex: 7; } /* 70% width for materials */
+.content-sidebar { flex: 3; } /* 30% width for comments */
 
 /* Comments Section */
 .comments-card {
-    border-left: 5px solid var(--secondary); /* Differentiate from primary content */
+    position: sticky; /* Keeps it in view as user scrolls */
+    top: 30px; 
+    border-left: 5px solid var(--accent-red);
 }
 
 .comment-form textarea {
     width: 100%;
-    padding: 15px;
+    padding: 10px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 6px;
     margin-bottom: 10px;
     resize: vertical;
-    min-height: 80px;
-    box-sizing: border-box; /* Include padding in the element's total width and height */
+    min-height: 60px;
+    box-sizing: border-box;
 }
 
+.btn-post-comment { padding: 8px 15px; font-size: 14px; }
+
 .comment-list {
-    margin-top: 25px;
-    padding-top: 20px;
+    margin-top: 20px;
+    padding-top: 15px;
     border-top: 1px dashed var(--border-color);
 }
 
-.comment-item {
-    background-color: #fefefe;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #f0f4f8;
-    margin-bottom: 15px;
-}
-
 .comment-meta {
-    font-size: 12px;
-    color: var(--secondary);
-    margin-bottom: 5px;
+    font-size: 11px;
+    color: var(--text-light);
+    margin-bottom: 3px;
+    margin-top: 10px;
 }
-
 .comment-text {
-    margin: 5px 0 10px 0;
-    line-height: 1.5;
-}
-
-.btn-reply {
-    background: none;
-    border: none;
-    color: var(--primary);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 0;
+    font-size: 14px;
+    margin: 0;
+    padding-left: 5px;
 }
 
 .reply-item {
-    margin-top: 10px;
-    margin-left: 25px;
-    padding-left: 15px;
-    border-left: 2px solid #e0e7ff; /* Light blue line for reply thread */
+    margin-left: 15px;
+    padding-left: 10px;
+    border-left: 2px solid #e0e7ff; 
 }
