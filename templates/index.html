@@ -5,34 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyShare Dashboard - ULTIMATE</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+    
+    </head>
 <body>
 
     <div class="app-container">
 
         <aside class="sidebar">
-            <div class="logo">
-                ✨ StudyShare
-            </div>
+            <div class="logo">✨ StudyShare</div>
+            
             <div class="profile-summary">
                 <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
                      alt="Profile Picture" class="profile-thumb">
                 <p class="user-name">{{ user_data.username|default('Guest') }}</p>
                 
-                {% set badge_class = 'badge-new' if user_data.badge == 'New Member' else 'badge-uploader' if user_data.badge == 'Uploader' else 'badge-regular' %}
+                {% set badge_class = 'badge-admin' if user_data.role == 'admin' else 'badge-uploader' if user_data.badge == 'Uploader' else 'badge-regular' if user_data.badge == 'Regular Member' else 'badge-new' %}
                 <span class="badge {{ badge_class }}">{{ user_data.badge|default('New Member') }}</span>
                 
-                <a href="/profile" class="edit-profile-link">Edit Profile</a>
+                <a href="{{ url_for('profile_settings') }}" class="edit-profile-link">Edit Profile</a>
             </div>
 
             <nav class="nav-links">
-                <a href="/" class="nav-item active"><span class="icon">📊</span> Dashboard</a>
-                <a href="/upload" class="nav-item"><span class="icon">➕</span> Upload New</a>
-                <a href="/profile" class="nav-item"><span class="icon">⚙️</span> Profile Settings</a>
-                <a href="/logout" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-item active"><span class="icon">📊</span> Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item"><span class="icon">➕</span> Upload New</a>
+                <a href="{{ url_for('profile_settings') }}" class="nav-item"><span class="icon">⚙️</span> Profile Settings</a>
+                {% if user_data.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}" class="nav-item nav-admin"><span class="icon">🔑</span> Admin Panel</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
             </nav>
         </aside>
 
@@ -45,37 +48,61 @@
                 </div>
                 
                 <div class="header-actions">
-                    <button onclick="window.location.href='/upload'" class="btn-primary btn-upload">Upload Material</button>
-                    <button onclick="window.location.href='/logout'" class="btn-logout">Logout</button>
+                    <button onclick="window.location.href='{{ url_for('upload_material') }}'" class="btn-primary btn-upload">Upload Material</button>
+                    <button onclick="window.location.href='{{ url_for('logout') }}'" class="btn-logout">Logout</button>
                 </div>
             </header>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert-card alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
             <div class="stat-grid">
                 <div class="stat-card">
                     <p class="stat-label">Total Uploads</p>
-                    <p class="stat-value">{{ stat_data.total_uploads|default(0) }}</p>
+                    <p class="stat-value text-primary">{{ stat_data.total_uploads|default(0) }}</p>
                 </div>
                 <div class="stat-card">
-                    <p class="stat-label">Your Comments</p>
-                    <p class="stat-value">{{ stat_data.total_comments|default(0) }}</p>
+                    <p class="stat-label">Total Likes Given</p>
+                    <p class="stat-value text-accent">{{ stat_data.total_likes|default(0) }}</p>
                 </div>
                 <div class="stat-card">
                     <p class="stat-label">New Activity</p>
                     <p class="stat-value text-red">{{ stat_data.new_activity|default(0) }}</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Your Comments</p>
+                    <p class="stat-value text-secondary">{{ stat_data.total_comments|default(0) }}</p>
                 </div>
             </div>
 
 
             <div class="card filter-card">
                 <h3 class="card-title">Filter & Search Materials</h3>
-                <form action="/" method="GET" class="filter-controls">
+                <form action="{{ url_for('dashboard') }}" method="GET" class="filter-controls">
                     
-                    <select name="subject" class="filter-select"><option value="">All Subjects</option></select>
-                    <select name="type" class="filter-select"><option value="">All Types</option></select>
+                    <select name="subject" class="filter-select">
+                        <option value="">All Subjects</option>
+                        {% for subject in filters.subjects %}
+                            <option value="{{ subject }}">{{ subject }}</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <select name="type" class="filter-select">
+                        <option value="">All Types</option>
+                        {% for file_type in filters.types %}
+                            <option value="{{ file_type }}">{{ file_type }}</option>
+                        {% endfor %}
+                    </select>
+
                     <input type="text" name="search" class="filter-input" placeholder="Filename or description">
                     
                     <button type="submit" class="btn-primary">Apply Filters</button>
-                    <button type="reset" onclick="window.location.href='/'" class="btn-secondary">Clear</button>
+                    <button type="reset" onclick="window.location.href='{{ url_for('dashboard') }}'" class="btn-secondary">Clear</button>
                 </form>
             </div>
 
@@ -83,10 +110,24 @@
                 
                 <div class="content-main">
                     <div class="card materials-card">
-                        <h3 class="card-title">Latest Materials</h3>
-                        <div class="empty-state">
-                            <p>No materials found. Be the first to <a href="/upload" class="link-action">Upload one now!</a></p>
-                        </div>
+                        <h3 class="card-title">Latest Materials ({{ materials|length }} Found)</h3>
+                        
+                        {% if not materials %}
+                            <div class="empty-state">
+                                <p>No study materials found matching your filters.</p> 
+                                <a href="{{ url_for('upload_material') }}" class="link-action">Upload one now!</a>
+                            </div>
+                        {% else %}
+                            <div class="material-item">
+                                <p class="material-name">Math Study Guide (PDF)</p>
+                                <div class="material-actions">
+                                    <a href="#" class="action-btn">Preview</a>
+                                    <a href="#" class="action-btn">Download</a>
+                                    <a href="{{ url_for('like_file', file_id=101) }}" class="action-btn action-like">Like (15)</a>
+                                    <a href="{{ url_for('delete_file', file_id=101) }}" class="action-btn action-delete">Delete</a>
+                                </div>
+                            </div>
+                            {% endif %}
                     </div>
                 </div>
 
@@ -94,17 +135,22 @@
                     <div class="card comments-card">
                         <h3 class="card-title">Community Discussion</h3>
 
-                        <form action="/comment" method="POST" class="comment-form">
-                            <textarea name="comment_text" placeholder="Share your thoughts..." required></textarea>
-                            <button type="submit" class="btn-primary btn-post-comment">Post</button>
+                        <form action="{{ url_for('post_comment') }}" method="POST" class="comment-form">
+                            <input type="hidden" name="material_id" value="101">
+                            <textarea name="comment_text" placeholder="Share your thoughts or ask a question..." required></textarea>
+                            <button type="submit" class="btn-primary btn-post-comment">Post Comment</button>
                         </form>
 
                         <div class="comment-list">
-                            <p class="comment-meta"><strong>Sarah J.</strong> 5m ago:</p>
-                            <p class="comment-text">Love the new stats cards! Looks amazing.</p>
-                            <div class="reply-item">
-                                <p class="comment-meta"><strong>Admin</strong> replied:</p>
-                                <p class="comment-text">Thank you! Your feedback is gold. 🌟</p>
+                            <div class="comment-item">
+                                <p class="comment-meta"><strong>Shiroorigami23</strong> (Admin) - 5m ago:</p>
+                                <p class="comment-text">This dashboard feels incredibly responsive and professional!</p>
+                                <button class="btn-reply">Reply</button>
+                                
+                                <div class="reply-item">
+                                    <p class="comment-meta"><strong>regular_user</strong> replied:</p>
+                                    <p class="comment-text">Agreed, the sidebar really elevates the UX.</p>
+                                </div>
                             </div>
                             </div>
                     </div>
