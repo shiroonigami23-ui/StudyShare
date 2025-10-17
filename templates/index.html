@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyShare Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -11,25 +10,23 @@
         <aside class="sidebar">
             <div class="logo">✨ StudyShare</div>
             <div class="profile-summary">
-                <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
+                <img src="{{ url_for('serve_profile_pic', filename=user_data.profile_pic) }}" 
                      alt="Profile Picture" class="profile-thumb">
                 <p class="user-name">{{ user_data.username }}</p>
-                <a href="{{ url_for('profile') }}" class="edit-profile-link">Profile Settings</a>
-            </div>
-            <nav class="nav-links">
-                <a href="{{ url_for('dashboard') }}" class="nav-item active">📊 Dashboard</a>
-                <a href="{{ url_for('upload_material') }}" class="nav-item">➕ Upload New</a>
-                <a href="{{ url_for('logout') }}" class="nav-item nav-logout">👋 Logout</a>
-            </nav>
-        </aside>
-        <main class="content-area">
-            <header class="top-header">
-                <h1>Welcome, {{ user_data.username }}!</h1>
                 {% if user_role == 'admin' %}
                     <span class="badge badge-admin">ADMIN</span>
                 {% endif %}
-            </header>
-            
+                <a href="{{ url_for('profile') }}" class="edit-profile-link">Profile Settings</a>
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('dashboard') }}" class="nav-item active">Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item">Upload New</a>
+                <a href="{{ url_for('logout') }}" class="nav-item">Logout</a>
+            </nav>
+        </aside>
+
+        <main class="content-area">
+            <h1>Study Materials</h1>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -38,32 +35,59 @@
                 {% endif %}
             {% endwith %}
 
+            <div class="card filter-card">
+                <h3 class="card-title">Filter & Search Materials</h3>
+                <form action="{{ url_for('dashboard') }}" method="GET" class="filter-controls">
+                    <input type="text" name="search" class="filter-input" placeholder="Search by filename..." value="{{ search_term or '' }}">
+                    <input type="text" name="subject" class="filter-input" placeholder="Filter by subject..." value="{{ subject_filter or '' }}">
+                    <button type="submit" class="btn-primary">Apply</button>
+                    <a href="{{ url_for('dashboard') }}" class="btn-secondary">Clear</a>
+                </form>
+            </div>
+
             <div class="card materials-card">
-                <h3>Latest Materials</h3>
+                <h3 class="card-title">Found {{ materials|length }} Materials</h3>
                 {% if not materials %}
                     <div class="empty-state">
-                        <p>No study materials have been uploaded yet.</p> 
-                        <a href="{{ url_for('upload_material') }}">Upload one now!</a>
+                        <p>No study materials found matching your criteria.</p> 
                     </div>
                 {% else %}
                     {% for material in materials %}
-                    <div class="material-item">
-                        <div>
-                            <p class="material-name">{{ material.filename }}</p>
-                            <p class="material-meta">by {{ material.uploader_username }}</p>
+                        <div class="material-item">
+                            <div>
+                                <p class="material-name">{{ material.filename }}</p>
+                                <small>by {{ material.uploader_username }} | <strong>Subject:</strong> {{ material.subject }}</small>
+                            </div>
+                            <div class="material-actions">
+                                <a href="{{ url_for('serve_material', filename=material.filename) }}" target="_blank" class="action-btn">Download</a>
+                                {% if current_user_id == material.uploader_id or user_role == 'admin' %}
+                                    <a href="{{ url_for('delete_file', material_id=material.id) }}" class="action-btn action-delete">Delete</a>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="material-actions">
-                            <a href="{{ url_for('serve_file', filename=material.filename) }}" class="action-btn" target="_blank">Download</a>
-                            <!-- ### ADMIN LOGIC ### -->
-                            <!-- Show delete button if user is owner OR user is admin -->
-                            {% if material.uploader_id == current_user_id or user_role == 'admin' %}
-                                <a href="{{ url_for('delete_file', material_id=material.id) }}" class="action-btn action-delete">Delete</a>
-                            {% endif %}
-                        </div>
-                    </div>
                     {% endfor %}
                 {% endif %}
             </div>
+            
+            <!-- Community Chat Section -->
+            <div class="card chat-card">
+                <h3 class="card-title">Community Chat</h3>
+                <div class="chat-messages">
+                    {% for message in messages %}
+                        <div class="chat-message">
+                            <p class="chat-meta"><strong>{{ message.username }}</strong> says:</p>
+                            <p class="chat-text">{{ message.text }}</p>
+                        </div>
+                    {% else %}
+                        <p>No messages yet. Be the first to say something!</p>
+                    {% endfor %}
+                </div>
+                <form action="{{ url_for('post_shout') }}" method="POST" class="chat-form">
+                    <textarea name="text" placeholder="Type your message..." required></textarea>
+                    <button type="submit" class="btn-primary">Post</button>
+                </form>
+            </div>
+
         </main>
     </div>
 </body>
