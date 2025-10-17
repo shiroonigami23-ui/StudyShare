@@ -11,14 +11,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 # --- Firebase Configuration ---
+# NOTE: Use the full path to your credentials file on PythonAnywhere
+# Example: '/home/your_username/your_project_folder/firebase-credentials.json'
+CREDENTIALS_PATH = '/home/shiroonigami23/firebase-credentials.json'
 try:
-    with open('/home/shiroonigami23/firebase-credentials.json') as f: # Absolute path for PythonAnywhere
+    with open(CREDENTIALS_PATH) as f:
         firebase_credentials = json.load(f)
     PROJECT_ID = firebase_credentials.get('project_id')
     print(f"SUCCESS: Loaded Firebase Project ID: {PROJECT_ID}")
 except Exception as e:
     PROJECT_ID = None
-    print(f"CRITICAL ERROR: Could not load or parse firebase-credentials.json: {e}")
+    print(f"CRITICAL ERROR: Could not load or parse firebase-credentials.json from {CREDENTIALS_PATH}: {e}")
 
 BASE_FIRESTORE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
 
@@ -44,7 +47,8 @@ def firestore_request(method, url, **kwargs):
         return response
     except requests.exceptions.RequestException as e:
         print(f"Error during Firestore request to {url}: {e}")
-        print(f"Response Body: {response.text if 'response' in locals() else 'No response'}")
+        if 'response' in locals():
+            print(f"Response Body: {response.text}")
         return None
 
 def parse_firestore_document(doc):
@@ -72,39 +76,37 @@ def format_for_firestore(data):
     return formatted
     
 def firestore_query(collection, field, op, value):
-    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents:runQuery"
+    url = f"https://firestore.googleapis.com/v1/{BASE_FIRESTORE_URL.split('/v1/')[1]}:runQuery"
     query_body = {
         'structuredQuery': {
             'from': [{'collectionId': collection}],
             'where': { 'fieldFilter': { 'field': {'fieldPath': field}, 'op': op, 'value': {'stringValue': value} } }
         }
     }
-    parent_path = f"projects/{PROJECT_ID}/databases/(default)/documents"
-    response = firestore_request('POST', url, json={'structuredQuery': query_body['structuredQuery'], 'parent': parent_path})
-
+    response = firestore_request('POST', url, json=query_body)
     if response:
         docs = response.json()
         return [parse_firestore_document(doc.get('document', {})) for doc in docs if 'document' in doc]
     return []
 
 def firestore_add_document(collection, data):
-    url = f"https://{BASE_FIRESTORE_URL}/{collection}"
+    url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/{collection}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('POST', url, json=payload)
     return response.json() if response else None
 
 def firestore_get_document(path):
-    url = f"https://{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/{path}"
     response = firestore_request('GET', url)
     return parse_firestore_document(response.json()) if response else None
 
 def firestore_delete_document(path):
-    url = f"https://{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/{path}"
     response = firestore_request('DELETE', url)
     return response is not None
 
 def firestore_update_document(path, data):
-    url = f"https://{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/{path}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('PATCH', url, json=payload)
     return response.json() if response else None
@@ -142,7 +144,7 @@ def signup():
         if firestore_query('users', 'username', 'EQUAL', username):
             flash('Username already exists.', 'error'); return render_template('signup.html')
         
-        all_users_url = f"https://{BASE_FIRESTORE_URL}/users?pageSize=1"
+        all_users_url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/users?pageSize=1"
         response = firestore_request('GET', all_users_url)
         is_first_user = not response or not response.json().get('documents')
         role = 'admin' if is_first_user else 'user'
@@ -193,8 +195,7 @@ def dashboard():
     search_term = request.args.get('search', '').lower()
     subject_filter = request.args.get('subject', '').lower()
 
-    # Fetch materials
-    url = f"https://{BASE_FIRESTORE_URL}/materials"
+    url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/materials"
     response = firestore_request('GET', url)
     all_materials = []
     if response and 'documents' in response.json():
@@ -206,14 +207,12 @@ def dashboard():
     if subject_filter:
         filtered_materials = [m for m in filtered_materials if subject_filter in m.get('subject', '').lower()]
 
-    # Fetch shoutbox messages
-    shoutbox_url = f"https://{BASE_FIRESTORE_URL}/shoutbox"
+    shoutbox_url = f"https://{BASE_FIRESTORE_URL.split('https://')[1]}/shoutbox"
     shoutbox_response = firestore_request('GET', shoutbox_url)
     shoutbox_messages = []
     if shoutbox_response and 'documents' in shoutbox_response.json():
         shoutbox_messages = [parse_firestore_document(doc) for doc in shoutbox_response.json().get('documents', [])]
-    # Sort messages by timestamp
-    shoutbox_messages.sort(key=lambda x: x.get('timestamp', ''))
+    shoutbox_messages.sort(key=lambda x: x.get('timestamp', ''), reverse=True) # Show newest first
 
     user_data = firestore_get_document(f"users/{session['user_id']}")
     return render_template('index.html', 
@@ -221,7 +220,7 @@ def dashboard():
                            materials=filtered_materials, 
                            messages=shoutbox_messages,
                            current_user_id=session['user_id'], 
-                           user_role=session['user_role'],
+                           user_role=session.get('user_role', 'user'),
                            search_term=request.args.get('search', ''),
                            subject_filter=request.args.get('subject', ''))
 
@@ -261,9 +260,9 @@ def upload_material():
             }
             firestore_add_document('materials', material_data)
             flash('File uploaded!', 'success')
-            return redirect(url_for('dashboard'))
         else:
             flash('File and subject are required.', 'error')
+        return redirect(url_for('dashboard'))
     return render_template('upload.html')
 
 @app.route('/delete_file/<material_id>')
@@ -312,3 +311,9 @@ def serve_profile_pic(filename):
 @app.route('/uploads/materials/<filename>')
 def serve_material(filename):
     return send_from_directory(app.config['MATERIALS_FOLDER'], filename)
+
+if __name__ == '__main__':
+    # Create necessary folders on startup
+    os.makedirs(MATERIALS_FOLDER, exist_ok=True)
+    os.makedirs(PROFILE_PICS_FOLDER, exist_ok=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
