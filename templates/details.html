@@ -2,24 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Details for: File</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 40px; background-color: #f4f7fa; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #4f46e5; }
-        .file-info { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .actions-btn a { text-decoration: none; color: white; padding: 8px 12px; border-radius: 5px; margin-right: 10px; }
-        .download-btn { background-color: #4f46e5; }
-        .delete-btn { background-color: #ef4444; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Details for {{ file_item.filename }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Details page is a work in progress!</h1>
-        <p>This page will show file details and comments.</p>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">✨ StudyShare</div>
+            <nav class="nav-links">
+                <a href="{{ url_for('dashboard') }}" class="nav-item">📊 Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item">➕ Upload New</a>
+                <a href="{{ url_for('logout') }}" class="nav-item nav-logout">👋 Logout</a>
+            </nav>
+        </aside>
+        <main class="content-area">
+            <header class="top-header"><h1>Material Details</h1></header>
 
-        <a href="{{ url_for('dashboard') }}" style="margin-top: 30px; display: block;">← Back to Dashboard</a>
+            <div class="card">
+                <h3>{{ file_item.filename }}</h3>
+                <p><strong>Subject:</strong> {{ file_item.subject }}</p>
+                <p><strong>Description:</strong> {{ file_item.description or 'No description provided.' }}</p>
+                <p><strong>Uploaded by:</strong> {{ file_item.uploader_username }}</p>
+                <div class="material-actions" style="margin-top: 20px;">
+                    <a href="{{ url_for('serve_material', filename=file_item.filename) }}" target="_blank" class="btn-primary">Preview</a>
+                    <a href="{{ url_for('serve_material', filename=file_item.filename) }}" download class="btn-primary">Download</a>
+                </div>
+            </div>
+
+            <div class="card comments-card">
+                <h3>Discussion</h3>
+                <div class="comment-list">
+                    {% for comment in comments %}
+                        <div class="comment-item">
+                            <p class="comment-meta"><strong>{{ comment.username }}</strong> said:</p>
+                            <p class="comment-text">{{ comment.text }}</p>
+                        </div>
+                    {% else %}
+                        <p>No comments yet. Start the discussion!</p>
+                    {% endfor %}
+                </div>
+                <hr>
+                <form action="{{ url_for('add_comment', material_id=file_item.id) }}" method="POST" class="comment-form">
+                    <textarea name="comment_text" placeholder="Add a comment..." required></textarea>
+                    <button type="submit" class="btn-primary">Post Comment</button>
+                </form>
+            </div>
+        </main>
     </div>
 </body>
 </html>
+
 
