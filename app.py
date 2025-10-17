@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 
 # --- Firebase Configuration ---
 try:
-    with open('firebase-credentials.json') as f:
+    with open('/home/shiroonigami23/firebase-credentials.json') as f: # Absolute path for PythonAnywhere
         firebase_credentials = json.load(f)
     PROJECT_ID = firebase_credentials.get('project_id')
     print(f"SUCCESS: Loaded Firebase Project ID: {PROJECT_ID}")
@@ -72,7 +72,7 @@ def format_for_firestore(data):
     return formatted
     
 def firestore_query(collection, field, op, value):
-    url = f"https://{BASE_FIRESTORE_URL}:runQuery"
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents:runQuery"
     query_body = {
         'structuredQuery': {
             'from': [{'collectionId': collection}],
@@ -190,45 +190,63 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get search terms from URL query parameters
     search_term = request.args.get('search', '').lower()
     subject_filter = request.args.get('subject', '').lower()
 
-    # Fetch all materials from Firestore
+    # Fetch materials
     url = f"https://{BASE_FIRESTORE_URL}/materials"
     response = firestore_request('GET', url)
     all_materials = []
     if response and 'documents' in response.json():
         all_materials = [parse_firestore_document(doc) for doc in response.json().get('documents', [])]
     
-    # Filter materials in Python
     filtered_materials = all_materials
     if search_term:
         filtered_materials = [m for m in filtered_materials if search_term in m.get('filename', '').lower()]
     if subject_filter:
         filtered_materials = [m for m in filtered_materials if subject_filter in m.get('subject', '').lower()]
 
-    user_data = {
-        'username': session.get('username'),
-        'profile_pic': session.get('profile_pic')
-    }
+    # Fetch shoutbox messages
+    shoutbox_url = f"https://{BASE_FIRESTORE_URL}/shoutbox"
+    shoutbox_response = firestore_request('GET', shoutbox_url)
+    shoutbox_messages = []
+    if shoutbox_response and 'documents' in shoutbox_response.json():
+        shoutbox_messages = [parse_firestore_document(doc) for doc in shoutbox_response.json().get('documents', [])]
+    # Sort messages by timestamp
+    shoutbox_messages.sort(key=lambda x: x.get('timestamp', ''))
+
+    user_data = firestore_get_document(f"users/{session['user_id']}")
     return render_template('index.html', 
                            user_data=user_data, 
                            materials=filtered_materials, 
+                           messages=shoutbox_messages,
                            current_user_id=session['user_id'], 
                            user_role=session['user_role'],
                            search_term=request.args.get('search', ''),
                            subject_filter=request.args.get('subject', ''))
+
+@app.route('/shout', methods=['POST'])
+@login_required
+def post_shout():
+    text = request.form.get('text', '').strip()
+    if text:
+        message_data = {
+            'username': session['username'],
+            'text': text,
+            'timestamp': datetime.utcnow().isoformat() + "Z"
+        }
+        firestore_add_document('shoutbox', message_data)
+    return redirect(url_for('dashboard'))
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload_material():
     if request.method == 'POST':
         file = request.files.get('file')
-        subject = request.form.get('subject', 'General')
-        description = request.form.get('description', '')
+        subject = request.form.get('subject', 'General').strip()
+        description = request.form.get('description', '').strip()
 
-        if file and file.filename:
+        if file and file.filename and subject:
             filename = secure_filename(file.filename)
             os.makedirs(app.config['MATERIALS_FOLDER'], exist_ok=True)
             file.save(os.path.join(app.config['MATERIALS_FOLDER'], filename))
@@ -244,6 +262,8 @@ def upload_material():
             firestore_add_document('materials', material_data)
             flash('File uploaded!', 'success')
             return redirect(url_for('dashboard'))
+        else:
+            flash('File and subject are required.', 'error')
     return render_template('upload.html')
 
 @app.route('/delete_file/<material_id>')
@@ -260,7 +280,6 @@ def delete_file(material_id):
         flash('File deleted.', 'success')
     else:
         flash('You do not have permission to delete this file.', 'error')
-        
     return redirect(url_for('dashboard'))
 
 @app.route('/profile', methods=['GET', 'POST'])
