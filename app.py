@@ -20,7 +20,7 @@ except Exception as e:
     PROJECT_ID = None
     print(f"CRITICAL ERROR: Could not load or parse firebase-credentials.json: {e}")
 
-FIRESTORE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
+BASE_FIRESTORE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
 
 # --- App Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -44,6 +44,7 @@ def firestore_request(method, url, **kwargs):
         return response
     except requests.exceptions.RequestException as e:
         print(f"Error during Firestore request to {url}: {e}")
+        print(f"Response Body: {response.text if 'response' in locals() else 'No response'}")
         return None
 
 def parse_firestore_document(doc):
@@ -71,7 +72,9 @@ def format_for_firestore(data):
     return formatted
 
 def firestore_query(collection, field, op, value):
-    url = f"{FIRESTORE_URL}/{collection}:runQuery"
+    # ### NETWORKING FIX ###
+    # Added the full BASE_FIRESTORE_URL to ensure https:// is included
+    url = f"{BASE_FIRESTORE_URL}:runQuery"
     query_body = {
         'structuredQuery': {
             'from': [{'collectionId': collection}],
@@ -79,7 +82,7 @@ def firestore_query(collection, field, op, value):
         }
     }
     parent_path = f"projects/{PROJECT_ID}/databases/(default)/documents"
-    response = firestore_request('POST', f"{parent_path}:runQuery", json=query_body)
+    response = firestore_request('POST', url, json={'structuredQuery': query_body['structuredQuery'], 'parent': parent_path})
 
     if response:
         docs = response.json()
@@ -87,22 +90,22 @@ def firestore_query(collection, field, op, value):
     return []
 
 def firestore_add_document(collection, data):
-    url = f"{FIRESTORE_URL}/{collection}"
+    url = f"{BASE_FIRESTORE_URL}/{collection}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('POST', url, json=payload)
     return response.json() if response else None
 
 def firestore_get_document(path):
-    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
+    url = f"{BASE_FIRESTORE_URL}/{path}"
     response = firestore_request('GET', url)
     return parse_firestore_document(response.json()) if response else None
 
 def firestore_delete_document(path):
-    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
+    url = f"{BASE_FIRESTORE_URL}/{path}"
     response = firestore_request('DELETE', url)
     return response is not None
     
-# --- Utility & Security (MUST BE DEFINED BEFORE ROUTES USE IT) ---
+# --- Utility & Security ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -125,8 +128,8 @@ def signup():
         if firestore_query('users', 'username', 'EQUAL', username):
             flash('Username already exists.', 'error'); return render_template('signup.html')
         
-        all_users_url = f"{FIRESTORE_URL}/users"
-        response = firestore_request('GET', all_users_url + "?pageSize=1")
+        all_users_url = f"{BASE_FIRESTORE_URL}/users?pageSize=1"
+        response = firestore_request('GET', all_users_url)
         is_first_user = not response or not response.json().get('documents')
         role = 'admin' if is_first_user else 'user'
         
@@ -171,8 +174,6 @@ def logout():
     return redirect(url_for('login'))
 
 # --- Main App Routes ---
-# ### ROUTE ORDER FIX ###
-# This root route now comes AFTER login_required is defined.
 @app.route('/')
 @login_required
 def root():
@@ -181,7 +182,7 @@ def root():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    url = f"{FIRESTORE_URL}/materials"
+    url = f"{BASE_FIRESTORE_URL}/materials"
     response = firestore_request('GET', url)
     materials = []
     if response and 'documents' in response.json():
