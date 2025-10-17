@@ -7,47 +7,23 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
     <div class="app-container">
-
         <aside class="sidebar">
             <div class="logo">✨ StudyShare</div>
-            
             <div class="profile-summary">
                 <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
                      alt="Profile Picture" class="profile-thumb">
                 <p class="user-name">{{ user_data.username|default('Guest') }}</p>
-                
-                {% set badge_class = 'badge-admin' if user_data.role == 'admin' else 'badge-uploader' if user_data.badge == 'Uploader' else 'badge-regular' if user_data.badge == 'Regular Member' else 'badge-new' %}
-                <span class="badge {{ badge_class }}">{{ user_data.badge|default('New Member') }}</span>
-                
-                <a href="{{ url_for('profile_settings') }}" class="edit-profile-link">Edit Profile</a>
             </div>
-
             <nav class="nav-links">
-                <a href="{{ url_for('dashboard') }}" class="nav-item active"><span class="icon">📊</span> Dashboard</a>
-                <a href="{{ url_for('upload_material') }}" class="nav-item"><span class="icon">➕</span> Upload New</a>
-                <a href="{{ url_for('profile_settings') }}" class="nav-item"><span class="icon">⚙️</span> Profile Settings</a>
-                {% if user_data.role == 'admin' %}
-                    <a href="#" class="nav-item nav-admin"><span class="icon">🔑</span> Admin Panel</a>
-                {% endif %}
-                <a href="{{ url_for('logout') }}" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-item active">📊 Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item">➕ Upload New</a>
+                <a href="{{ url_for('logout') }}" class="nav-item nav-logout">👋 Logout</a>
             </nav>
         </aside>
 
         <main class="content-area">
-
-            <header class="top-header">
-                <div class="header-greeting">
-                    <h1 class="dashboard-title">Good {{ time_of_day }}!</h1>
-                    <p class="greeting-message">Quick access and stats for your Study Materials.</p>
-                </div>
-                
-                <div class="header-actions">
-                    <a href="{{ url_for('upload_material') }}" class="btn-primary">Upload Material</a>
-                    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
-                </div>
-            </header>
+            <header class="top-header"><h1>Dashboard</h1></header>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -57,51 +33,26 @@
                 {% endif %}
             {% endwith %}
 
-            <div class="stat-grid">
-                <div class="stat-card">
-                    <p class="stat-label">Total Uploads</p>
-                    <p class="stat-value text-primary">{{ stat_data.total_uploads|default(0) }}</p>
-                </div>
-                <div class="stat-card">
-                    <p class="stat-label">Total Likes Given</p>
-                    <p class="stat-value text-accent">{{ stat_data.total_likes|default(0) }}</p>
-                </div>
-                <div class="stat-card">
-                    <p class="stat-label">New Activity</p>
-                    <p class="stat-value text-red">{{ stat_data.new_activity|default(0) }}</p>
-                </div>
-                <div class="stat-card">
-                    <p class="stat-label">Your Comments</p>
-                    <p class="stat-value text-secondary">{{ stat_data.total_comments|default(0) }}</p>
-                </div>
-            </div>
-
             <div class="card materials-card">
-                <h3 class="card-title">Latest Materials ({{ materials|length }} Found)</h3>
-                
-                {% if not materials %}
-                    <div class="empty-state">
-                        <p>No study materials found.</p> 
-                        <a href="{{ url_for('upload_material') }}" class="link-action">Upload one now!</a>
+                <h3>Latest Materials</h3>
+                {% for material in materials %}
+                <div class="material-item">
+                    <p class="material-name">{{ material.filename }}</p>
+                    <div class="material-actions">
+                        <!-- ### NEW ### Added a details button -->
+                        <a href="{{ url_for('details', material_id=material.id) }}" class="action-btn">Details</a>
+                        <a href="{{ url_for('serve_material', filename=material.filename) }}" target="_blank" class="action-btn">Preview</a>
+                        <a href="{{ url_for('serve_material', filename=material.filename) }}" download class="action-btn">Download</a>
+                        <a href="{{ url_for('delete_file', material_id=material.id) }}" class="action-btn action-delete">Delete</a>
                     </div>
+                </div>
                 {% else %}
-                    {% for material in materials %}
-                    <div class="material-item">
-                        <p class="material-name">{{ material.filename }}</p>
-                        <div class="material-actions">
-                            <a href="#" class="action-btn">Details</a>
-                            <a href="{{ url_for('preview_file', filename=material.stored_name) }}" class="action-btn">Preview</a>
-                            <a href="{{ url_for('download_file', filename=material.stored_name) }}" class="action-btn">Download</a>
-                            <a href="#" class="action-btn action-like">Like ({{ material.likes }})</a>
-                            <a href="{{ url_for('delete_file', file_id=material.id) }}" class="action-btn action-delete">Delete</a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
+                    <p>No materials uploaded yet. Be the first!</p>
+                {% endfor %}
             </div>
-            
         </main>
     </div>
 </body>
 </html>
+
 
