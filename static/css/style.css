@@ -1,25 +1,7 @@
 /* --- Base Styles (Keep as is) --- */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
-
-:root {
-    --primary: #4f46e5;
-    --primary-light: #6366f1;
-    --accent-red: #ef4444;
-    --accent-green: #10b981;
-    --text-dark: #1f2937;
-    --text-light: #6b7280;
-    --background: #f4f7fa;
-    --card-bg: white;
-    --border-color: #e5e7eb;
-}
-
-body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background-color: var(--background);
-    color: var(--text-dark);
-}
-
+:root { --primary: #4f46e5; --primary-light: #6366f1; --accent-red: #ef4444; --accent-green: #10b981; --text-dark: #1f2937; --text-light: #6b7280; --background: #f4f7fa; --card-bg: white; --border-color: #e5e7eb; }
+body { margin: 0; font-family: 'Poppins', sans-serif; background-color: var(--background); color: var(--text-dark); }
 .app-container { display: flex; min-height: 100vh; }
 .sidebar { width: 260px; background-color: var(--card-bg); padding: 30px 20px; box-shadow: 1px 0 10px rgba(0, 0, 0, 0.05); }
 .logo { font-size: 26px; font-weight: 800; padding-bottom: 20px; color: var(--primary); border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
@@ -48,51 +30,17 @@ body {
 .empty-state { text-align: center; padding: 40px 0; color: var(--text-light); }
 .badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .badge-admin { background-color: #fecaca; color: var(--accent-red); }
+.chat-card { border-top: 4px solid var(--primary); }
+.chat-messages { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; }
 
-/* --- NEW Community Chat Styles --- */
-.chat-card {
-    border-top: 4px solid var(--primary);
-}
-
-.chat-messages {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.chat-message {
-    padding: 8px 0;
-    border-bottom: 1px dashed var(--border-color);
-}
-.chat-message:last-child {
-    border-bottom: none;
-}
-
-.chat-meta {
-    font-size: 12px;
-    color: var(--text-light);
-    margin: 0 0 4px 0;
-}
-
-.chat-text {
-    margin: 0;
-    color: var(--text-dark);
-}
-
-.chat-form {
-    display: flex;
-    gap: 10px;
-}
-
-.chat-form textarea {
-    flex-grow: 1;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    resize: vertical;
-    min-height: 40px;
-    box-sizing: border-box;
-}
+/* --- NEW Reply Styles --- */
+.chat-message { padding: 10px; border-bottom: 1px dashed var(--border-color); }
+.chat-message:last-child { border-bottom: none; }
+.chat-meta { font-size: 12px; color: var(--text-light); margin: 0 0 4px 0; }
+.chat-text { margin: 0 0 8px 0; color: var(--text-dark); }
+.chat-form { display: flex; gap: 10px; margin-top: 15px; }
+.chat-form textarea { flex-grow: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; resize: vertical; min-height: 40px; box-sizing: border-box; }
+.reply-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 0; }
+.reply-form { margin-top: 10px; padding-left: 15px; }
+.replies { margin-left: 20px; padding-left: 15px; border-left: 2px solid var(--border-color); }
+.btn-small { padding: 5px 10px; font-size: 12px; }
