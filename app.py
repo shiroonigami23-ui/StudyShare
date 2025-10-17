@@ -35,20 +35,18 @@ app.secret_key = os.environ.get('SECRET_KEY', 'a-very-secret-and-random-key-for-
 # --- Helper Functions for Firestore REST API ---
 
 def firestore_request(method, url, **kwargs):
-    """A wrapper for making requests to Firestore to handle errors."""
     if not PROJECT_ID:
         print("Firestore request failed: Project ID is not configured.")
         return None
     try:
         response = requests.request(method, url, **kwargs)
-        response.raise_for_status()  # Raises an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
         return response
     except requests.exceptions.RequestException as e:
         print(f"Error during Firestore request to {url}: {e}")
         return None
 
 def parse_firestore_document(doc):
-    """Converts a Firestore REST API document into a simple Python dictionary."""
     output = {}
     if 'name' in doc:
         output['id'] = doc['name'].split('/')[-1]
@@ -61,31 +59,25 @@ def parse_firestore_document(doc):
             output[key] = int(value['integerValue'])
         elif 'timestampValue' in value:
             output[key] = value['timestampValue']
-        # Add other types as needed
     return output
 
 def format_for_firestore(data):
-    """Converts a Python dict to Firestore REST API format for saving."""
     formatted = {}
     for key, value in data.items():
         if isinstance(value, str):
             formatted[key] = {'stringValue': value}
         elif isinstance(value, int):
             formatted[key] = {'integerValue': str(value)}
-        # Add other types
     return formatted
 
 def firestore_query(collection, field, op, value):
-    """Queries a collection. Returns a list of documents."""
-    url = f"{FIRESTORE_URL}:runQuery"
+    url = f"{FIRESTORE_URL}/{collection}:runQuery"
     query_body = {
         'structuredQuery': {
             'from': [{'collectionId': collection}],
             'where': { 'fieldFilter': { 'field': {'fieldPath': field}, 'op': op, 'value': {'stringValue': value} } }
         }
     }
-    # The parent path needs to be specified for collection group queries, but for simple collection queries it's different.
-    # We query the collection directly.
     parent_path = f"projects/{PROJECT_ID}/databases/(default)/documents"
     response = firestore_request('POST', f"{parent_path}:runQuery", json=query_body)
 
@@ -95,24 +87,31 @@ def firestore_query(collection, field, op, value):
     return []
 
 def firestore_add_document(collection, data):
-    """Adds a new document."""
     url = f"{FIRESTORE_URL}/{collection}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('POST', url, json=payload)
     return response.json() if response else None
 
 def firestore_get_document(path):
-    """Gets a single document by its full path."""
-    url = f"{FIRESTORE_URL}/{path}"
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
     response = firestore_request('GET', url)
     return parse_firestore_document(response.json()) if response else None
 
 def firestore_delete_document(path):
-    """Deletes a document by its full path."""
-    url = f"{FIRESTORE_URL}/{path}"
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/{path}"
     response = firestore_request('DELETE', url)
     return response is not None
     
+# --- Utility & Security (MUST BE DEFINED BEFORE ROUTES USE IT) ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash("Please log in to access this page.", 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # --- Authentication & Admin Routes ---
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -126,8 +125,6 @@ def signup():
         if firestore_query('users', 'username', 'EQUAL', username):
             flash('Username already exists.', 'error'); return render_template('signup.html')
         
-        # ### ADMIN LOGIC ###
-        # Check if any users exist. If not, this is the first user, make them an admin.
         all_users_url = f"{FIRESTORE_URL}/users"
         response = firestore_request('GET', all_users_url + "?pageSize=1")
         is_first_user = not response or not response.json().get('documents')
@@ -145,7 +142,6 @@ def signup():
         return redirect(url_for('login'))
     return render_template('signup.html')
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -155,8 +151,6 @@ def login():
         users = firestore_query('users', 'username', 'EQUAL', username)
         user = users[0] if users else None
 
-        # ### PASSWORD FIX ###
-        # This check was missing before.
         if not user or not check_password_hash(user.get('password_hash', ''), password):
             flash('Invalid username or password.', 'error')
             return render_template('login.html')
@@ -176,7 +170,9 @@ def logout():
     flash('You have been securely logged out.', 'success')
     return redirect(url_for('login'))
 
-# Other routes remain the same...
+# --- Main App Routes ---
+# ### ROUTE ORDER FIX ###
+# This root route now comes AFTER login_required is defined.
 @app.route('/')
 @login_required
 def root():
@@ -227,8 +223,6 @@ def upload_material():
 def delete_file(material_id):
     material = firestore_get_document(f'materials/{material_id}')
     
-    # ### ADMIN LOGIC ###
-    # Allow deletion if the user is the owner OR if the user is an admin.
     if material and (material.get('uploader_id') == session['user_id'] or session.get('user_role') == 'admin'):
         firestore_delete_document(f'materials/{material_id}')
         try:
