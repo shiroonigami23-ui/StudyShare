@@ -25,6 +25,9 @@
         <main class="content-area">
             <header class="top-header">
                 <h1>Welcome, {{ user_data.username }}!</h1>
+                {% if user_role == 'admin' %}
+                    <span class="badge badge-admin">ADMIN</span>
+                {% endif %}
             </header>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -45,10 +48,17 @@
                 {% else %}
                     {% for material in materials %}
                     <div class="material-item">
-                        <p class="material-name">{{ material.filename }} (by {{ material.uploader_username }})</p>
+                        <div>
+                            <p class="material-name">{{ material.filename }}</p>
+                            <p class="material-meta">by {{ material.uploader_username }}</p>
+                        </div>
                         <div class="material-actions">
-                            <a href="{{ url_for('details', material_id=material.id) }}" class="action-btn">Details</a>
                             <a href="{{ url_for('serve_file', filename=material.filename) }}" class="action-btn" target="_blank">Download</a>
+                            <!-- ### ADMIN LOGIC ### -->
+                            <!-- Show delete button if user is owner OR user is admin -->
+                            {% if material.uploader_id == current_user_id or user_role == 'admin' %}
+                                <a href="{{ url_for('delete_file', material_id=material.id) }}" class="action-btn action-delete">Delete</a>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
