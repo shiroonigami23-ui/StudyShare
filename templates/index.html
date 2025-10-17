@@ -13,7 +13,7 @@
                 <img src="{{ url_for('serve_profile_pic', filename=user_data.profile_pic) }}" 
                      alt="Profile Picture" class="profile-thumb">
                 <p class="user-name">{{ user_data.username }}</p>
-                {% if user_role == 'admin' %}
+                {% if user_data.role == 'admin' %}
                     <span class="badge badge-admin">ADMIN</span>
                 {% endif %}
                 <a href="{{ url_for('profile') }}" class="edit-profile-link">Profile Settings</a>
@@ -69,7 +69,6 @@
                 {% endif %}
             </div>
             
-            <!-- Community Chat Section -->
             <div class="card chat-card">
                 <h3 class="card-title">Community Chat</h3>
                 <div class="chat-messages">
