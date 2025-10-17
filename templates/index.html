@@ -13,7 +13,8 @@
             <div class="profile-summary">
                 <img src="{{ url_for('static', filename='uploads/profile_pics/' + user_data.profile_pic) }}" 
                      alt="Profile Picture" class="profile-thumb">
-                <p class="user-name">{{ user_data.username|default('Guest') }}</p>
+                <p class="user-name">{{ user_data.username }}</p>
+                <a href="{{ url_for('profile') }}" class="edit-profile-link">Profile Settings</a>
             </div>
             <nav class="nav-links">
                 <a href="{{ url_for('dashboard') }}" class="nav-item active">📊 Dashboard</a>
@@ -21,9 +22,10 @@
                 <a href="{{ url_for('logout') }}" class="nav-item nav-logout">👋 Logout</a>
             </nav>
         </aside>
-
         <main class="content-area">
-            <header class="top-header"><h1>Dashboard</h1></header>
+            <header class="top-header">
+                <h1>Welcome, {{ user_data.username }}!</h1>
+            </header>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -35,20 +37,22 @@
 
             <div class="card materials-card">
                 <h3>Latest Materials</h3>
-                {% for material in materials %}
-                <div class="material-item">
-                    <p class="material-name">{{ material.filename }}</p>
-                    <div class="material-actions">
-                        <!-- ### NEW ### Added a details button -->
-                        <a href="{{ url_for('details', material_id=material.id) }}" class="action-btn">Details</a>
-                        <a href="{{ url_for('serve_material', filename=material.filename) }}" target="_blank" class="action-btn">Preview</a>
-                        <a href="{{ url_for('serve_material', filename=material.filename) }}" download class="action-btn">Download</a>
-                        <a href="{{ url_for('delete_file', material_id=material.id) }}" class="action-btn action-delete">Delete</a>
+                {% if not materials %}
+                    <div class="empty-state">
+                        <p>No study materials have been uploaded yet.</p> 
+                        <a href="{{ url_for('upload_material') }}">Upload one now!</a>
                     </div>
-                </div>
                 {% else %}
-                    <p>No materials uploaded yet. Be the first!</p>
-                {% endfor %}
+                    {% for material in materials %}
+                    <div class="material-item">
+                        <p class="material-name">{{ material.filename }} (by {{ material.uploader_username }})</p>
+                        <div class="material-actions">
+                            <a href="{{ url_for('details', material_id=material.id) }}" class="action-btn">Details</a>
+                            <a href="{{ url_for('serve_file', filename=material.filename) }}" class="action-btn" target="_blank">Download</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
             </div>
         </main>
     </div>
