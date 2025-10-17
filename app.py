@@ -23,7 +23,6 @@ except Exception as e:
 BASE_FIRESTORE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents"
 
 # --- App Configuration ---
-# PythonAnywhere uses a different directory structure, so we get the base path this way
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MATERIALS_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'materials')
 PROFILE_PICS_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'profile_pics')
@@ -34,10 +33,7 @@ app.config['PROFILE_PICS_FOLDER'] = PROFILE_PICS_FOLDER
 app.secret_key = os.environ.get('SECRET_KEY', 'a-very-secret-and-random-key-for-sessions')
 ALLOWED_PIC_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# --- All Helper functions, routes, etc. remain the same as the 'Final Networking Fix' version ---
-# ... (The rest of the code is identical to the last working version you had)
 # --- Helper Functions for Firestore REST API ---
-
 def firestore_request(method, url, **kwargs):
     if not PROJECT_ID:
         print("Firestore request failed: Project ID is not configured.")
@@ -74,9 +70,9 @@ def format_for_firestore(data):
         elif isinstance(value, int):
             formatted[key] = {'integerValue': str(value)}
     return formatted
-
+    
 def firestore_query(collection, field, op, value):
-    url = f"{BASE_FIRESTORE_URL}:runQuery"
+    url = f"https://{BASE_FIRESTORE_URL}:runQuery"
     query_body = {
         'structuredQuery': {
             'from': [{'collectionId': collection}],
@@ -92,23 +88,23 @@ def firestore_query(collection, field, op, value):
     return []
 
 def firestore_add_document(collection, data):
-    url = f"{BASE_FIRESTORE_URL}/{collection}"
+    url = f"https://{BASE_FIRESTORE_URL}/{collection}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('POST', url, json=payload)
     return response.json() if response else None
 
 def firestore_get_document(path):
-    url = f"{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL}/{path}"
     response = firestore_request('GET', url)
     return parse_firestore_document(response.json()) if response else None
 
 def firestore_delete_document(path):
-    url = f"{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL}/{path}"
     response = firestore_request('DELETE', url)
     return response is not None
 
 def firestore_update_document(path, data):
-    url = f"{BASE_FIRESTORE_URL}/{path}"
+    url = f"https://{BASE_FIRESTORE_URL}/{path}"
     payload = {'fields': format_for_firestore(data)}
     response = firestore_request('PATCH', url, json=payload)
     return response.json() if response else None
@@ -146,7 +142,7 @@ def signup():
         if firestore_query('users', 'username', 'EQUAL', username):
             flash('Username already exists.', 'error'); return render_template('signup.html')
         
-        all_users_url = f"{BASE_FIRESTORE_URL}/users?pageSize=1"
+        all_users_url = f"https://{BASE_FIRESTORE_URL}/users?pageSize=1"
         response = firestore_request('GET', all_users_url)
         is_first_user = not response or not response.json().get('documents')
         role = 'admin' if is_first_user else 'user'
@@ -194,17 +190,35 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    url = f"{BASE_FIRESTORE_URL}/materials"
+    # Get search terms from URL query parameters
+    search_term = request.args.get('search', '').lower()
+    subject_filter = request.args.get('subject', '').lower()
+
+    # Fetch all materials from Firestore
+    url = f"https://{BASE_FIRESTORE_URL}/materials"
     response = firestore_request('GET', url)
-    materials = []
+    all_materials = []
     if response and 'documents' in response.json():
-        materials = [parse_firestore_document(doc) for doc in response.json().get('documents', [])]
+        all_materials = [parse_firestore_document(doc) for doc in response.json().get('documents', [])]
     
+    # Filter materials in Python
+    filtered_materials = all_materials
+    if search_term:
+        filtered_materials = [m for m in filtered_materials if search_term in m.get('filename', '').lower()]
+    if subject_filter:
+        filtered_materials = [m for m in filtered_materials if subject_filter in m.get('subject', '').lower()]
+
     user_data = {
         'username': session.get('username'),
         'profile_pic': session.get('profile_pic')
     }
-    return render_template('index.html', user_data=user_data, materials=materials, current_user_id=session['user_id'], user_role=session['user_role'])
+    return render_template('index.html', 
+                           user_data=user_data, 
+                           materials=filtered_materials, 
+                           current_user_id=session['user_id'], 
+                           user_role=session['user_role'],
+                           search_term=request.args.get('search', ''),
+                           subject_filter=request.args.get('subject', ''))
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -216,7 +230,6 @@ def upload_material():
 
         if file and file.filename:
             filename = secure_filename(file.filename)
-            # Ensure the directory exists
             os.makedirs(app.config['MATERIALS_FOLDER'], exist_ok=True)
             file.save(os.path.join(app.config['MATERIALS_FOLDER'], filename))
 
