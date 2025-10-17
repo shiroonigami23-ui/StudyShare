@@ -3,39 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <title>Upload Material</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f4f7fa; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #4f46e5; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
-        form label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #1f2937; }
-        form input[type="file"], form input[type="text"], form textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #e5e7eb; border-radius: 5px; box-sizing: border-box; }
-        input[type="submit"] { background-color: #4f46e5; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .back-link { margin-top: 20px; display: block; color: #6b7280; text-decoration: none; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>⬆️ Upload New Material</h1>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div style="padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; background-color: #fee2e2; color: #ef4444;">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <form method="POST" enctype="multipart/form-data">
-            <label for="material_file">Select File (Max 15MB):</label>
-            <input type="file" name="material_file" id="material_file" required>
+    <div class="app-container">
+        <aside class="sidebar">
+             <div class="logo">✨ StudyShare</div>
+             <nav>
+                <a href="{{ url_for('dashboard') }}" class="nav-item">Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item active">Upload New</a>
+                <a href="{{ url_for('profile') }}" class="nav-item">Profile Settings</a>
+                <a href="{{ url_for('logout') }}" class="nav-item">Logout</a>
+             </nav>
+        </aside>
+        <main class="content-area">
+            <h1>Upload New Study Material</h1>
             
-            <p style="font-size: 12px; color: #6b7280;">Allowed types: {{ allowed_ext|join(', ') }}</p>
-            
-            <input type="submit" value="Upload & Share">
-        </form>
-        
-        <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
+            <div class="card">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="file">Select File:</label>
+                        <input type="file" name="file" id="file" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">Subject:</label>
+                        <input type="text" name="subject" id="subject" placeholder="e.g., Computer Science" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <textarea name="description" id="description" rows="4" placeholder="Briefly describe the contents of the file."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Upload & Share</button>
+                </form>
+            </div>
+        </main>
     </div>
 </body>
 </html>
+
 
