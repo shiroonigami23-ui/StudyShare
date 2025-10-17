@@ -31,9 +31,9 @@ app = Flask(__name__)
 app.config['MATERIALS_FOLDER'] = MATERIALS_FOLDER
 app.config['PROFILE_PICS_FOLDER'] = PROFILE_PICS_FOLDER
 app.secret_key = os.environ.get('SECRET_KEY', 'a-very-secret-and-random-key-for-sessions')
+ALLOWED_PIC_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# --- Helper Functions for Firestore REST API ---
-
+# --- Helper Functions ---
 def firestore_request(method, url, **kwargs):
     if not PROJECT_ID:
         print("Firestore request failed: Project ID is not configured.")
@@ -44,46 +44,34 @@ def firestore_request(method, url, **kwargs):
         return response
     except requests.exceptions.RequestException as e:
         print(f"Error during Firestore request to {url}: {e}")
-        print(f"Response Body: {response.text if 'response' in locals() else 'No response'}")
+        if 'response' in locals(): print(f"Response Body: {response.text}")
         return None
 
 def parse_firestore_document(doc):
     output = {}
     if 'name' in doc:
         output['id'] = doc['name'].split('/')[-1]
-    
     fields = doc.get('fields', {})
     for key, value in fields.items():
-        if 'stringValue' in value:
-            output[key] = value['stringValue']
-        elif 'integerValue' in value:
-            output[key] = int(value['integerValue'])
-        elif 'timestampValue' in value:
-            output[key] = value['timestampValue']
+        if 'stringValue' in value: output[key] = value['stringValue']
+        elif 'integerValue' in value: output[key] = int(value['integerValue'])
+        elif 'timestampValue' in value: output[key] = value['timestampValue']
     return output
 
 def format_for_firestore(data):
     formatted = {}
     for key, value in data.items():
-        if isinstance(value, str):
-            formatted[key] = {'stringValue': value}
-        elif isinstance(value, int):
-            formatted[key] = {'integerValue': str(value)}
+        if isinstance(value, str): formatted[key] = {'stringValue': value}
+        elif isinstance(value, int): formatted[key] = {'integerValue': str(value)}
     return formatted
 
 def firestore_query(collection, field, op, value):
-    # ### NETWORKING FIX ###
-    # Added the full BASE_FIRESTORE_URL to ensure https:// is included
     url = f"{BASE_FIRESTORE_URL}:runQuery"
     query_body = {
-        'structuredQuery': {
-            'from': [{'collectionId': collection}],
-            'where': { 'fieldFilter': { 'field': {'fieldPath': field}, 'op': op, 'value': {'stringValue': value} } }
-        }
+        'structuredQuery': { 'from': [{'collectionId': collection}], 'where': { 'fieldFilter': { 'field': {'fieldPath': field}, 'op': op, 'value': {'stringValue': value} } } }
     }
     parent_path = f"projects/{PROJECT_ID}/databases/(default)/documents"
     response = firestore_request('POST', url, json={'structuredQuery': query_body['structuredQuery'], 'parent': parent_path})
-
     if response:
         docs = response.json()
         return [parse_firestore_document(doc.get('document', {})) for doc in docs if 'document' in doc]
@@ -104,8 +92,18 @@ def firestore_delete_document(path):
     url = f"{BASE_FIRESTORE_URL}/{path}"
     response = firestore_request('DELETE', url)
     return response is not None
-    
-# --- Utility & Security ---
+
+def firestore_update_document(path, data):
+    url = f"{BASE_FIRESTORE_URL}/{path}"
+    payload = {'fields': format_for_firestore(data)}
+    response = firestore_request('PATCH', url, json=payload)
+    return response.json() if response else None
+
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+# --- Login Decorator ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -115,10 +113,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- Authentication & Admin Routes ---
+# --- Routes ---
+@app.route('/')
+def root():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
+        # ... (signup logic remains the same)
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
 
@@ -147,6 +152,7 @@ def signup():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # ... (login logic remains the same)
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
@@ -173,12 +179,6 @@ def logout():
     flash('You have been securely logged out.', 'success')
     return redirect(url_for('login'))
 
-# --- Main App Routes ---
-@app.route('/')
-@login_required
-def root():
-    return redirect(url_for('dashboard'))
-
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -186,12 +186,9 @@ def dashboard():
     response = firestore_request('GET', url)
     materials = []
     if response and 'documents' in response.json():
-        materials = [parse_firestore_document(doc) for doc in response.json()['documents']]
+        materials = [parse_firestore_document(doc) for doc in response.json().get('documents', [])]
     
-    user_data = {
-        'username': session.get('username'),
-        'profile_pic': session.get('profile_pic')
-    }
+    user_data = { 'username': session.get('username'), 'profile_pic': session.get('profile_pic') }
     return render_template('index.html', user_data=user_data, materials=materials, current_user_id=session['user_id'], user_role=session['user_role'])
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -205,25 +202,19 @@ def upload_material():
         if file and file.filename:
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['MATERIALS_FOLDER'], filename))
-
-            material_data = {
-                'uploader_id': session['user_id'],
-                'uploader_username': session['username'],
-                'filename': filename,
-                'subject': subject,
-                'description': description,
-                'uploaded_at': datetime.utcnow().isoformat() + "Z"
-            }
+            material_data = { 'uploader_id': session['user_id'], 'uploader_username': session['username'], 'filename': filename, 'subject': subject, 'description': description, 'uploaded_at': datetime.utcnow().isoformat() + "Z" }
             firestore_add_document('materials', material_data)
-            flash('File uploaded!', 'success')
+            flash('File uploaded successfully!', 'success')
             return redirect(url_for('dashboard'))
+        else:
+            flash('No file selected.', 'error')
+            return redirect(request.url)
     return render_template('upload.html')
 
 @app.route('/delete_file/<material_id>')
 @login_required
 def delete_file(material_id):
     material = firestore_get_document(f'materials/{material_id}')
-    
     if material and (material.get('uploader_id') == session['user_id'] or session.get('user_role') == 'admin'):
         firestore_delete_document(f'materials/{material_id}')
         try:
@@ -233,20 +224,41 @@ def delete_file(material_id):
         flash('File deleted.', 'success')
     else:
         flash('You do not have permission to delete this file.', 'error')
-        
     return redirect(url_for('dashboard'))
 
-@app.route('/uploads/<filename>')
-def serve_file(filename):
-    return send_from_directory(app.config['MATERIALS_FOLDER'], filename)
-
-@app.route('/profile')
+@app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-     user_data = firestore_get_document(f"users/{session['user_id']}")
-     return render_template('profile.html', user_data=user_data)
+    if request.method == 'POST':
+        file = request.files.get('profile_pic')
+        if file and allowed_file(file.filename, ALLOWED_PIC_EXTENSIONS):
+            # Save the file with a unique name
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{session['user_id']}.{ext}"
+            file.save(os.path.join(app.config['PROFILE_PICS_FOLDER'], filename))
+            
+            # Update the user's document in Firestore
+            firestore_update_document(f"users/{session['user_id']}", {'profile_pic': filename})
+            
+            # Update the session
+            session['profile_pic'] = filename
+            flash('Profile picture updated!', 'success')
+            return redirect(url_for('profile'))
+        else:
+            flash('Invalid file type for profile picture.', 'error')
 
-# Startup
+    user_data = firestore_get_document(f"users/{session['user_id']}")
+    return render_template('profile.html', user_data=user_data)
+
+@app.route('/uploads/profile_pics/<filename>')
+def serve_profile_pic(filename):
+    return send_from_directory(app.config['PROFILE_PICS_FOLDER'], filename)
+
+@app.route('/uploads/materials/<filename>')
+def serve_material(filename):
+    return send_from_directory(app.config['MATERIALS_FOLDER'], filename)
+
+# --- Startup ---
 if __name__ == '__main__':
     os.makedirs(MATERIALS_FOLDER, exist_ok=True)
     os.makedirs(PROFILE_PICS_FOLDER, exist_ok=True)
