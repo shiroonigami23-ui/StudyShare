@@ -3,30 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <title>Profile Settings</title>
+    <!-- Assuming a shared style.css, otherwise add styles here -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-<div class="app-container">
-    <aside class="sidebar">
-        <div class="logo">✨ StudyShare</div>
-        <nav class="nav-links">
-            <a href="{{ url_for('dashboard') }}" class="nav-item">📊 Dashboard</a>
-            <a href="{{ url_for('profile') }}" class="nav-item active">⚙️ Profile Settings</a>
-            <a href="{{ url_for('logout') }}" class="nav-item nav-logout">👋 Logout</a>
-        </nav>
-    </aside>
-    <main class="content-area">
-        <header class="top-header">
+    <div class="app-container">
+        <!-- Assuming a sidebar similar to the dashboard -->
+        <aside class="sidebar">
+             <div class="logo">✨ StudyShare</div>
+             <nav>
+                <a href="{{ url_for('dashboard') }}" class="nav-item">Dashboard</a>
+                <a href="{{ url_for('upload_material') }}" class="nav-item">Upload New</a>
+                <a href="{{ url_for('profile') }}" class="nav-item active">Profile Settings</a>
+                <a href="{{ url_for('logout') }}" class="nav-item">Logout</a>
+             </nav>
+        </aside>
+
+        <main class="content-area">
             <h1>Profile Settings</h1>
-        </header>
-        <div class="card">
-            <h3>Your Information</h3>
-            <p><strong>Username:</strong> {{ user_data.username }}</p>
-            <p><strong>Role:</strong> {{ user_data.role }}</p>
-            <p>This is where you will be able to change your password and profile picture in the future.</p>
-        </div>
-    </main>
-</div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert-card alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card">
+                <h3>Update Profile Picture</h3>
+                <img src="{{ url_for('serve_profile_pic', filename=user_data.profile_pic) }}" alt="Current Profile Picture" width="100">
+                
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="profile_pic">Choose new picture:</label>
+                        <input type="file" name="profile_pic" id="profile_pic" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Upload Picture</button>
+                </form>
+            </div>
+
+             <div class="card">
+                <h3>Account Information</h3>
+                <p><strong>Username:</strong> {{ user_data.username }}</p>
+                <p><strong>Role:</strong> {{ user_data.role }}</p>
+             </div>
+        </main>
+    </div>
 </body>
 </html>
 
