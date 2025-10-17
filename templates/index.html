@@ -72,15 +72,36 @@
             <div class="card chat-card">
                 <h3 class="card-title">Community Chat</h3>
                 <div class="chat-messages">
-                    {% for message in messages %}
+                    {% macro render_comment(comment) %}
                         <div class="chat-message">
-                            <p class="chat-meta"><strong>{{ message.username }}</strong> says:</p>
-                            <p class="chat-text">{{ message.text }}</p>
+                            <p class="chat-meta"><strong>{{ comment.username }}</strong> says:</p>
+                            <p class="chat-text">{{ comment.text }}</p>
+                            <button class="reply-btn" onclick="toggleReplyForm('{{ comment.id }}')">Reply</button>
+                            <div id="reply-form-{{ comment.id }}" class="reply-form" style="display: none;">
+                                <form action="{{ url_for('post_shout') }}" method="POST">
+                                    <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                                    <textarea name="text" placeholder="Write a reply..." required></textarea>
+                                    <button type="submit" class="btn-primary btn-small">Post Reply</button>
+                                </form>
+                            </div>
+                            {% if replies[comment.id] %}
+                                <div class="replies">
+                                    {% for reply in replies[comment.id] %}
+                                        {{ render_comment(reply) }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
+                    {% endmacro %}
+
+                    {% for message in messages %}
+                        {{ render_comment(message) }}
                     {% else %}
                         <p>No messages yet. Be the first to say something!</p>
                     {% endfor %}
                 </div>
+                <hr>
+                <h4>Post a new message:</h4>
                 <form action="{{ url_for('post_shout') }}" method="POST" class="chat-form">
                     <textarea name="text" placeholder="Type your message..." required></textarea>
                     <button type="submit" class="btn-primary">Post</button>
@@ -89,6 +110,17 @@
 
         </main>
     </div>
+
+    <script>
+        function toggleReplyForm(commentId) {
+            const form = document.getElementById('reply-form-' + commentId);
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
 
