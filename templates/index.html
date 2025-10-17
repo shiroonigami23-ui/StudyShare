@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyShare Dashboard - ULTIMATE</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
+    <title>StudyShare Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
-    </head>
+</head>
 <body>
 
     <div class="app-container">
@@ -33,7 +29,7 @@
                 <a href="{{ url_for('upload_material') }}" class="nav-item"><span class="icon">➕</span> Upload New</a>
                 <a href="{{ url_for('profile_settings') }}" class="nav-item"><span class="icon">⚙️</span> Profile Settings</a>
                 {% if user_data.role == 'admin' %}
-                    <a href="{{ url_for('admin_dashboard') }}" class="nav-item nav-admin"><span class="icon">🔑</span> Admin Panel</a>
+                    <a href="#" class="nav-item nav-admin"><span class="icon">🔑</span> Admin Panel</a>
                 {% endif %}
                 <a href="{{ url_for('logout') }}" class="nav-item nav-logout"><span class="icon">👋</span> Logout</a>
             </nav>
@@ -48,8 +44,8 @@
                 </div>
                 
                 <div class="header-actions">
-                    <button onclick="window.location.href='{{ url_for('upload_material') }}'" class="btn-primary btn-upload">Upload Material</button>
-                    <button onclick="window.location.href='{{ url_for('logout') }}'" class="btn-logout">Logout</button>
+                    <a href="{{ url_for('upload_material') }}" class="btn-primary">Upload Material</a>
+                    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
                 </div>
             </header>
             
@@ -80,85 +76,32 @@
                 </div>
             </div>
 
-
-            <div class="card filter-card">
-                <h3 class="card-title">Filter & Search Materials</h3>
-                <form action="{{ url_for('dashboard') }}" method="GET" class="filter-controls">
-                    
-                    <select name="subject" class="filter-select">
-                        <option value="">All Subjects</option>
-                        {% for subject in filters.subjects %}
-                            <option value="{{ subject }}">{{ subject }}</option>
-                        {% endfor %}
-                    </select>
-                    
-                    <select name="type" class="filter-select">
-                        <option value="">All Types</option>
-                        {% for file_type in filters.types %}
-                            <option value="{{ file_type }}">{{ file_type }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <input type="text" name="search" class="filter-input" placeholder="Filename or description">
-                    
-                    <button type="submit" class="btn-primary">Apply Filters</button>
-                    <button type="reset" onclick="window.location.href='{{ url_for('dashboard') }}'" class="btn-secondary">Clear</button>
-                </form>
-            </div>
-
-            <div class="content-row">
+            <div class="card materials-card">
+                <h3 class="card-title">Latest Materials ({{ materials|length }} Found)</h3>
                 
-                <div class="content-main">
-                    <div class="card materials-card">
-                        <h3 class="card-title">Latest Materials ({{ materials|length }} Found)</h3>
-                        
-                        {% if not materials %}
-                            <div class="empty-state">
-                                <p>No study materials found matching your filters.</p> 
-                                <a href="{{ url_for('upload_material') }}" class="link-action">Upload one now!</a>
-                            </div>
-                        {% else %}
-                            <div class="material-item">
-                                <p class="material-name">Math Study Guide (PDF)</p>
-                                <div class="material-actions">
-                                    <a href="#" class="action-btn">Preview</a>
-                                    <a href="#" class="action-btn">Download</a>
-                                    <a href="{{ url_for('like_file', file_id=101) }}" class="action-btn action-like">Like (15)</a>
-                                    <a href="{{ url_for('delete_file', file_id=101) }}" class="action-btn action-delete">Delete</a>
-                                </div>
-                            </div>
-                            {% endif %}
+                {% if not materials %}
+                    <div class="empty-state">
+                        <p>No study materials found.</p> 
+                        <a href="{{ url_for('upload_material') }}" class="link-action">Upload one now!</a>
                     </div>
-                </div>
-
-                <div class="content-sidebar">
-                    <div class="card comments-card">
-                        <h3 class="card-title">Community Discussion</h3>
-
-                        <form action="{{ url_for('post_comment') }}" method="POST" class="comment-form">
-                            <input type="hidden" name="material_id" value="101">
-                            <textarea name="comment_text" placeholder="Share your thoughts or ask a question..." required></textarea>
-                            <button type="submit" class="btn-primary btn-post-comment">Post Comment</button>
-                        </form>
-
-                        <div class="comment-list">
-                            <div class="comment-item">
-                                <p class="comment-meta"><strong>Shiroorigami23</strong> (Admin) - 5m ago:</p>
-                                <p class="comment-text">This dashboard feels incredibly responsive and professional!</p>
-                                <button class="btn-reply">Reply</button>
-                                
-                                <div class="reply-item">
-                                    <p class="comment-meta"><strong>regular_user</strong> replied:</p>
-                                    <p class="comment-text">Agreed, the sidebar really elevates the UX.</p>
-                                </div>
-                            </div>
-                            </div>
+                {% else %}
+                    {% for material in materials %}
+                    <div class="material-item">
+                        <p class="material-name">{{ material.filename }}</p>
+                        <div class="material-actions">
+                            <a href="#" class="action-btn">Details</a>
+                            <a href="{{ url_for('preview_file', filename=material.stored_name) }}" class="action-btn">Preview</a>
+                            <a href="{{ url_for('download_file', filename=material.stored_name) }}" class="action-btn">Download</a>
+                            <a href="#" class="action-btn action-like">Like ({{ material.likes }})</a>
+                            <a href="{{ url_for('delete_file', file_id=material.id) }}" class="action-btn action-delete">Delete</a>
+                        </div>
                     </div>
-                </div>
-
+                    {% endfor %}
+                {% endif %}
             </div>
             
         </main>
     </div>
 </body>
 </html>
+
